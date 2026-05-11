@@ -84,7 +84,7 @@ body{height:100%;font-family:'Heebo','Arial Hebrew',Arial,sans-serif;background:
 .prod-name{font-size:13px;font-weight:500;color:#222;}
 .prod-sub{font-size:10px;color:#aaa;}
 .prod-qty{font-size:15px;font-weight:700;}
-/* Sticky totals bar inside invoice form */
+/* Sticky totals bar */
 .sticky-totals{
   position:sticky;top:0;z-index:20;
   display:flex;justify-content:space-between;align-items:center;
@@ -719,7 +719,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.12</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.13</div></div>`;
   return h;
 }
 
@@ -886,14 +886,18 @@ function renderInvForm(isTax){
   if(S.msg)h+=alertHtml(S.msg);
 
   h+=`<div class="fdivider" style="margin-top:0"><hr><span>👤 לקוח</span><hr></div>
-  <div class="field"><label>חיפוש לקוח <small>(שם לקוח / שם עסק / ת"ז) *</small></label>
+  <div class="field"><label>חיפוש לקוח / שם עסק <small>(לחיפוש) *</small></label>
     <div class="field-wrap">
-      <input type="text" id="inv-B" class="finput" value="${esc(f.B||f.A)}" placeholder="הקלד שם, עסק, או ת"ז..."
+      <input type="text" id="inv-B" class="finput" value="${esc(f.B)}" placeholder="הקלד לחיפוש..."
         oninput="onInvCustSearch(this.value)" autocomplete="off">
       ${S.showSuggest&&S.suggest.length?suggestHtmlInv():''}
     </div>
   </div>
-  ${f.A?`<div style="background:#f0f4ff;border-radius:8px;padding:7px 12px;margin-bottom:10px;font-size:12px;font-family:monospace;color:#1a73e8">✓ ${esc(f.B||'')} — ת"ז/ח"פ: ${esc(f.A)}</div>`:''}
+  <div class="field"><label>ת"ז / ח"פ <small>(עמודה A) *</small></label>
+    <input type="text" inputmode="numeric" id="inv-A" class="finput num" value="${esc(f.A)}"
+      placeholder="הזן ת\"ז או ח\"פ..."
+      oninput="uf('iForm','A',this.value);renderSaveBtn()">
+  </div>
   <div class="field"><label>תאריך <small>(עמודה C)</small></label>
     <input type="date" id="inv-C" class="finput" style="direction:ltr;text-align:left"
       value="${dateToISO(f.C)}" max="${dateToISO(tod())}"
@@ -956,46 +960,44 @@ function renderInvForm(isTax){
 
     <div class="field"><label>סכום התשלום ₪ <small>(עמודה AF) *</small></label>
       <input type="text" inputmode="decimal" class="finput num" value="${esc(f.AF)}"
-        oninput="uf('iForm','AF',this.value);renderSaveBtn()"
-        onchange="uf('iForm','AF',this.value);render()">
+        oninput="uf('iForm','AF',this.value);renderSaveBtn()">
     </div>
 
-    <div id="inv-cash-date" style="display:${isCash?'block':'none'}">
-      <div class="field"><label>תאריך תשלום <small>(עמודה AG)</small></label>
-        <input type="text" class="finput" value="${esc(f.AG||tod())}" readonly
-          style="background:#f0f0f0;color:#888;cursor:default">
-      </div>
-    </div>
+    ${isCash?`
+    <div class="field"><label>תאריך תשלום <small>(עמודה AG)</small></label>
+      <input type="text" class="finput" value="${esc(f.AG||tod())}" readonly
+        style="background:#f0f0f0;color:#888;cursor:default">
+    </div>`:''}
 
-    <div id="inv-chk-fields" style="display:${isChq?'block':'none'}">
-      <div class="field"><label>מספר שיק <small>(עמודה AH) *</small></label>
-        <input type="text" inputmode="numeric" class="finput num" value="${esc(f.AH)}"
-          oninput="uf('iForm','AH',this.value);renderSaveBtn()">
-      </div>
-      <div class="field"><label>תאריך פרעון שיק <small>(עמודה AG) *</small></label>
-        <input type="text" class="finput" value="${esc(f.AG||tod())}"
-          oninput="uf('iForm','AG',this.value);renderSaveBtn()">
-      </div>
-      <div class="field"><label>צילום שיק <small>(עמודה AI) *</small></label>
-        <input type="file" id="cheque-photo" accept="image/*" capture="environment"
-          style="position:absolute;width:1px;height:1px;opacity:0;" onchange="onPhotoChange(this)">
-        <button type="button" class="finput"
-          style="text-align:center;cursor:pointer;background:${f._photoTaken?'#e6f4ea':'#f8f8f8'};color:${f._photoTaken?'#1e8e3e':'#555'};font-size:14px;"
-          onclick="document.getElementById('cheque-photo').click()">
-          ${f._photoTaken?'✅ תמונה צולמה — לחץ לשינוי':'📷 צלם שיק'}
-        </button>
-        ${f._photoDataUrl?`<img src="${f._photoDataUrl}" style="margin-top:8px;width:100%;border-radius:8px;max-height:160px;object-fit:cover">`:''}
-      </div>
-      ${isOver?`
-      <div style="background:#fff8e1;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#e65100;">
-        ⚠️ השיק גבוה ב-₪${Math.round(paid-total).toLocaleString('he-IL')} — יש לציין מספר החשבונית שעבורה שולם ההפרש
-      </div>
-      <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
-        <input type="text" inputmode="numeric" class="finput num" value="${esc(f._overInvNum||'')}"
-          placeholder="מספר חשבונית"
-          oninput="uf('iForm','_overInvNum',this.value);renderSaveBtn()">
-      </div>`:''}
+    ${isChq?`
+    <div class="field"><label>מספר שיק <small>(עמודה AH) *</small></label>
+      <input type="text" inputmode="numeric" class="finput num" value="${esc(f.AH)}"
+        oninput="uf('iForm','AH',this.value);renderSaveBtn()">
     </div>
+    <div class="field"><label>תאריך פרעון שיק <small>(עמודה AG) *</small></label>
+      <input type="text" class="finput" value="${esc(f.AG||tod())}"
+        oninput="uf('iForm','AG',this.value);renderSaveBtn()">
+    </div>
+    <div class="field"><label>צילום שיק <small>(עמודה AI) *</small></label>
+      <input type="file" id="cheque-photo" accept="image/*" capture="environment"
+        style="position:absolute;width:1px;height:1px;opacity:0;" onchange="onPhotoChange(this)">
+      <button type="button" class="finput"
+        style="text-align:center;cursor:pointer;background:${f._photoTaken?'#e6f4ea':'#f8f8f8'};color:${f._photoTaken?'#1e8e3e':'#555'};font-size:14px;"
+        onclick="document.getElementById('cheque-photo').click()">
+        ${f._photoTaken?'✅ תמונה צולמה — לחץ לשינוי':'📷 צלם שיק'}
+      </button>
+      ${f._photoDataUrl?`<img src="${f._photoDataUrl}" style="margin-top:8px;width:100%;border-radius:8px;max-height:160px;object-fit:cover">`:''}
+    </div>
+    ${isOver?`
+    <div style="background:#fff8e1;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#e65100;">
+      ⚠️ השיק גבוה ב-₪${Math.round(paid-total).toLocaleString('he-IL')} — יש לציין מספר החשבונית שעבורה שולם ההפרש
+    </div>
+    <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
+      <input type="text" inputmode="numeric" class="finput num" value="${esc(f._overInvNum||'')}"
+        placeholder="מספר חשבונית"
+        oninput="uf('iForm','_overInvNum',this.value);renderSaveBtn()">
+    </div>`:''}
+    `:''}
 
     <div class="field"><label>הערות <small>(עמודה AJ)</small></label>
       <textarea class="finput" rows="3" id="inv-AJ"
@@ -1014,17 +1016,17 @@ function renderInvForm(isTax){
 
 function suggestHtmlReceipt(){
   return`<div class="suggest-box" id="suggest-box">
-    ${S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A)}','${esc(c.B)}')">
-      <div>${esc(c.A||'—')}</div>
-      <div class="sug-sub">${c.C?esc(c.C)+' · ':''}${c.B?esc(c.B):''}</div>
+    ${S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A||'')}','${esc(c.B||'')}')">
+      <div>${esc(c.C||c.A||'—')}</div>
+      <div class="sug-sub">${c.C&&c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
     </div>`).join('')}
   </div>`;
 }
 function suggestHtmlInv(){
   return`<div class="suggest-box" id="suggest-box">
-    ${S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickInvCust('${esc(c.B)}','${esc(c.C)}')">
+    ${S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickInvCust('${esc(c.B||'')}','${esc(c.C||c.A||'')}')">
       <div>${esc(c.C||c.A||'—')}</div>
-      <div class="sug-sub">${c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
+      <div class="sug-sub">${c.C&&c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
     </div>`).join('')}
   </div>`;
 }
@@ -1045,20 +1047,18 @@ function renderReceiptForm(){
   const invLocked=!!(rf.A && rf.A.trim());
   
   h+=`<div id="r-cust-search-container" style="display:${invLocked?'none':'block'}">
-        <div class="field"><label>חיפוש לקוח</label>
+        <div class="field"><label>חיפוש לקוח / שם עסק</label>
           <div class="field-wrap">
             <input type="text" id="r-H" class="finput" value="${esc(rf._custName)}"
-              placeholder="הקלד שם לקוח, שם עסק או ת\"ז"
+              placeholder="הקלד לחיפוש..."
               oninput="onCustSearch(this.value)" autocomplete="off">
             ${S.showSuggest&&S.suggest.length?suggestHtmlReceipt():''}
           </div>
         </div>
-        <div id="receipt-cust-unlocked" style="background:#f0f4ff;border-radius:8px;padding:10px 13px;margin-bottom:12px;display:${rf._custName||rf._custId?'flex':'none'};justify-content:space-between;align-items:flex-start">
-          <div>
-            <div class="rcb-name" style="font-size:13px;font-weight:600;color:#1a73e8">${esc(rf._custName||'—')}</div>
-            <div class="rcb-id" style="display:${rf._custId?'block':'none'};font-size:11px;color:#888;font-family:monospace">${esc(rf._custId)}</div>
-          </div>
-          <button type="button" onmousedown="event.preventDefault()" onclick="clearReceiptCustomer()" style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer;line-height:1">×</button>
+        <div class="field"><label>ת"ז / ח"פ</label>
+          <input type="text" inputmode="numeric" id="r-I" class="finput num" value="${esc(rf._custId)}"
+            placeholder="ת\"ז או ח\"פ..."
+            oninput="uf('rForm','_custId',this.value);renderSaveBtnRec()">
         </div>
       </div>`;
 
@@ -1448,19 +1448,30 @@ function updProd(qk,val){
 }
 
 function onCustSearch(val){
+  S.rForm._custName=val; 
+  renderSaveBtnRec();
   const inp=document.getElementById('r-H');
   const wrap=inp?.parentElement;
   let box=document.getElementById('suggest-box');
-  if(val.length<2){S.suggest=[];if(box)box.remove();inp?.focus();return;}
+  if(val.length<2){
+    S.suggest=[];S.showSuggest=false;
+    if(box)box.remove();
+    return;
+  }
   const q=val.toLowerCase();
   S.suggest=S.customers.filter(c=>['A','B','C'].some(k=>(c[k]||'').toLowerCase().includes(q)));
-  if(S.suggest.length&&wrap){
-    const inner=S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A)}','${esc(c.B)}')">
-      <div>${esc(c.C||c.A||'—')}</div><div class="sug-sub">${c.B?esc(c.B):''}</div>
+  S.showSuggest=S.suggest.length>0;
+  if(S.showSuggest&&wrap){
+    const inner=S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A||'')}','${esc(c.B||'')}')">
+      <div>${esc(c.C||c.A||'—')}</div><div class="sug-sub">${c.C&&c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
     </div>`).join('');
-    if(box)box.innerHTML=inner;
-    else{const el=document.createElement('div');el.className='suggest-box';el.id='suggest-box';el.innerHTML=inner;wrap.appendChild(el);}
-  }else if(box)box.remove();
+    if(box){box.innerHTML=inner;}
+    else{
+      const el=document.createElement('div');
+      el.className='suggest-box';el.id='suggest-box';
+      el.innerHTML=inner;wrap.appendChild(el);
+    }
+  }else if(box){box.remove();}
   inp?.focus();
 }
 
@@ -1479,8 +1490,8 @@ function onInvCustSearch(val){
   S.suggest=S.customers.filter(c=>['A','B','C'].some(k=>(c[k]||'').toLowerCase().includes(q)));
   S.showSuggest=S.suggest.length>0;
   if(S.showSuggest&&wrap){
-    const inner=S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickInvCust('${esc(c.B)}','${esc(c.C)}')">
-      <div>${esc(c.C||c.A||'—')}</div><div class="sug-sub">${c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
+    const inner=S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickInvCust('${esc(c.B||'')}','${esc(c.C||c.A||'')}')">
+      <div>${esc(c.C||c.A||'—')}</div><div class="sug-sub">${c.C&&c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
     </div>`).join('');
     if(box){box.innerHTML=inner;}
     else{
@@ -1505,10 +1516,6 @@ function pickCustomer(name,id){
     S.rForm._invDate=nz(inv.C)||'';
   }
   S.showSuggest=false;S.suggest=[];
-  document.getElementById('suggest-box')?.remove();
-  const inp=document.getElementById('r-H');
-  if(inp)inp.value=cust.C||name;
-  renderSaveBtnRec();
   render();
 }
 
@@ -1518,14 +1525,20 @@ function captureReceiptFields(){
   S.rForm.A=g('r-A').trim()||S.rForm.A;  
   S.rForm.E=g('r-E').trim();
   S.rForm.D=g('r-D').trim()||S.rForm.D;
+  
+  const rh=g('r-H'); if(rh) S.rForm._custName=rh;
+  const ri=g('r-I'); if(ri) S.rForm._custId=ri;
+  
   const ov=g('r-overinv').trim();S.rForm._overInvNum=ov||S.rForm._overInvNum;
   const gEl=document.getElementById('r-G');if(gEl)S.rForm.G=gEl.value;
 }
+
 function onReceiptPayTypeChange(val){
   captureReceiptFields();
   S.rForm.B=val;
   render();
 }
+
 function clearReceiptCustomer(){
   S.rForm._custName='';S.rForm._custId='';S.rForm._openInvs=[];
   S.rForm.A='';S.rForm._invTotal='';S.rForm._invDate='';
@@ -1541,7 +1554,7 @@ function onReceiptInvNumInput(val){
   if(!val.trim()){
     S.rForm._custId='';S.rForm._custName='';
     S.rForm._invTotal='';S.rForm._invDate='';S.rForm._openInvs=[];
-    updateReceiptCustomerBlock();
+    render();
     return;
   }
   
@@ -1551,13 +1564,11 @@ function onReceiptInvNumInput(val){
     
     if(found){
       S.rForm._custId=nz(found.A)||'';
-      
       let cName=nz(found.B);
       if(!cName && S.rForm._custId){
         const cust = S.customers.find(c => c.B === S.rForm._custId);
         if(cust) cName = cust.C || cust.A;
       }
-      
       S.rForm._custName=cName||'';
       S.rForm._invTotal=String(getInvBalance(val.trim()));
       S.rForm._invDate=nz(found.C)||'';
@@ -1566,57 +1577,8 @@ function onReceiptInvNumInput(val){
       S.rForm._custId='';S.rForm._custName='';
       S.rForm._invTotal='';S.rForm._invDate='';S.rForm._openInvs=[];
     }
-    
-    updateReceiptCustomerBlock();
+    render();
   },delay);
-}
-
-function updateReceiptCustomerBlock(){
-  const rf=S.rForm;
-  const invLocked = !!(rf.A && rf.A.trim());
-  
-  const searchContainer = document.getElementById('r-cust-search-container');
-  const lockedBlock = document.getElementById('receipt-cust-locked');
-  const unlockedBlock = document.getElementById('receipt-cust-unlocked');
-  const totalBlock = document.getElementById('receipt-inv-total');
-  
-  if(searchContainer) searchContainer.style.display = invLocked ? 'none' : 'block';
-  
-  if(lockedBlock) {
-     lockedBlock.style.display = invLocked && (rf._custName || rf._custId) ? 'block' : 'none';
-     if(invLocked) {
-         const nameEl = lockedBlock.querySelector('.rcb-name');
-         const idEl = lockedBlock.querySelector('.rcb-id');
-         if(nameEl) nameEl.textContent = rf._custName || '—';
-         if(idEl) {
-             idEl.style.display = rf._custId ? 'block' : 'none';
-             idEl.textContent = 'ת"ז/ח"פ: ' + rf._custId;
-         }
-     }
-  }
-  
-  if(unlockedBlock) {
-     unlockedBlock.style.display = !invLocked && (rf._custName || rf._custId) ? 'flex' : 'none';
-     if(!invLocked) {
-         const nameEl = unlockedBlock.querySelector('.rcb-name');
-         const idEl = unlockedBlock.querySelector('.rcb-id');
-         if(nameEl) nameEl.textContent = rf._custName || '—';
-         if(idEl) {
-             idEl.style.display = rf._custId ? 'block' : 'none';
-             idEl.textContent = rf._custId;
-         }
-     }
-  }
-
-  if(totalBlock){
-    if(rf._invTotal){
-      totalBlock.style.display='flex';
-      const tv=totalBlock.querySelector('.rcb-total');
-      if(tv)tv.textContent=fmt(rf._invTotal);
-    }else{
-      totalBlock.style.display='none';
-    }
-  }
 }
 
 function pickReceiptInv(invNum,invTotal,invDate){
@@ -1687,12 +1649,7 @@ function pickInvCust(custId,bizName){
   S.iForm.A=custId;
   S.iForm.B=bizName||''; 
   S.showSuggest=false;S.suggest=[];
-  const inp=document.getElementById('inv-B');
-  if(inp)inp.value=bizName||'';
-  const idField=document.getElementById('inv-A');
-  if(idField)idField.value=custId||'';
-  document.getElementById('suggest-box')?.remove();
-  renderSaveBtn();
+  render();
 }
 
 function editCust(custId){
@@ -1856,25 +1813,25 @@ async function saveInv(isTax){
   }
 }
 
-function taxFormErrors(){
-  const f=S.iForm;
-  const calc=calcInv(f);
-  const total=calc.withVat;
-  const paid=parseFloat(f.AF||0);
-  const isOver=f.AE==='שיק'&&total>0&&paid>total+0.5;
-  if(!f.A?.trim())return 'ת"ז / ח"פ הוא שדה חובה';
-  if(!f.AE)return 'בחר סוג תשלום';
-  if(!f.AF?.trim())return 'הזן סכום תשלום';
-  if(f.AE==='מזומן'&&total>0&&paid>total+0.5)
-    return `מזומן לא יכול לעלות על ₪${Math.round(total).toLocaleString('he-IL')}`;
-  if(isOver&&!f._overInvNum?.trim())
-    return 'הזן מספר חשבונית עבור ההפרש';
-  if(f.AE==='שיק'){
-    if(!f.AH?.trim())return 'הזן מספר שיק';
-    if(!f.AG?.trim())return 'הזן תאריך פרעון שיק';
-    if(!f._photoTaken)return 'צלם את השיק';
-  }
-  return null;
+function renderSaveBtn(){
+  const btn=document.getElementById('btn-save-inv');
+  if(!btn)return;
+  const isTax = S.screen==='new-tax';
+  const validErr = isTax ? taxFormErrors() : invoiceFormErrors();
+  const dis = S.saving || !!validErr;
+  btn.disabled = dis;
+  btn.style.background = dis ? '#ccc' : tc();
+  btn.textContent = S.saving ? '⏳ שומר...' : (validErr ? '⛔ ' + validErr : (isTax ? '💾 שמור חשמ"ק' : '💾 שמור חשבונית'));
+}
+
+function renderSaveBtnRec(){
+  const btn=document.getElementById('btn-save-rec');
+  if(!btn)return;
+  const validErr = receiptFormErrors();
+  const dis = S.saving || !!validErr;
+  btn.disabled = dis;
+  btn.style.background = dis ? '#ccc' : tc();
+  btn.textContent = S.saving ? '⏳ שומר...' : (validErr ? '⛔ ' + validErr : '💾 שמור קבלה');
 }
 
 window.addEventListener('DOMContentLoaded',()=>{

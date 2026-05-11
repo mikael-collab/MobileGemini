@@ -275,7 +275,6 @@ const RF=[
   {k:'J',label:'מספר קבלה',                     icon:'🔢'},
 ];
 
-// Direct DOM setters to avoid dropping mobile keyboard focus
 function setElValue(id, val) {
   const el = document.getElementById(id);
   if (el && el.value !== val) el.value = val;
@@ -293,7 +292,7 @@ function getSavedUrl() {
   try { return localStorage.getItem(STORAGE_KEY) || ''; } catch(e) { return ''; }
 }
 function saveUrlToLocal(url) {
-  try { localStorage.setItem(STORAGE_KEY, url); } catch(e) {}
+  try { localStorage.setItem(STORAGE_KEY, url); } catch(e) { console.warn('Storage blocked'); }
 }
 function getSavedSid() {
   try { return localStorage.getItem(STORAGE_KEY_SID) || ''; } catch(e) { return ''; }
@@ -489,7 +488,12 @@ async function pingSheets(){
         else if(/^קבלות$/.test(n))    SHEETS.receipts=n;
       });
     }
-  }catch(e){console.error('ping',e);}
+  }catch(e){
+    if((e.message||'').includes('Failed to fetch')) {
+        showToast('❌ שגיאת גישה: יש לוודא שהסקריפט מוגדר ל-"Anyone"', 'err', 6000);
+    }
+    console.error('ping',e);
+  }
 }
 
 async function runDiagnose(){
@@ -514,8 +518,13 @@ async function loadAny(tab,stateKey,limit,req){
     S[tab]=(d.data||[]).map((r,i)=>({...r,_id:i,_row:i+2})); 
     S[stateKey]='ok';delete S.errors[tab];
   }catch(e){
-    S[stateKey]=isBusy(e)?'busy':'error';
-    S.errors[tab]=e.message;
+    if((e.message||'').includes('Failed to fetch')) {
+        S.errors[tab] = 'הדפדפן חסם את הבקשה. חובה להגדיר ב-Apps Script "Who has access" ל-"Anyone" (ולא רק Anyone with Google Account).';
+        S[stateKey]='error';
+    } else {
+        S[stateKey]=isBusy(e)?'busy':'error';
+        S.errors[tab]=e.message;
+    }
   }
   render();
 }
@@ -762,7 +771,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.0</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.1</div></div>`;
   return h;
 }
 
@@ -1076,7 +1085,7 @@ function renderInvForm(isTax){
 function suggestHtmlReceipt(){
   return`<div class="suggest-box" id="suggest-box">
     ${S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A||'')}','${esc(c.B||'')}')">
-      <div>${esc(c.C||c.A||'—')}</div>
+      <div>${esc(c.A||'—')}</div>
       <div class="sug-sub">${c.C&&c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
     </div>`).join('')}
   </div>`;

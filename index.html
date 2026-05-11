@@ -704,7 +704,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.7</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.8</div></div>`;
   return h;
 }
 
@@ -824,8 +824,11 @@ function renderCustForm(){
   CF.filter(f=>!f.bank).forEach(f=>{h+=custField(f);});
   h+=`<div class="fdivider"><hr><span>🏦 פרטי בנק</span><hr></div>`;
   CF.filter(f=>f.bank).forEach(f=>{h+=custField(f);});
-  h+=`<button class="save-btn" style="background:${S.saving?'#ccc':color}" ${S.saving?'disabled':''} onclick="saveCust()">
-    ${S.saving?'⏳ שומר...':(isEdit?'💾 עדכן לקוח':'💾 שמור לקוח')}</button></div>`;
+  
+  const btnDisabled=S.saving;
+  const btnLabel=S.saving?'⏳ שומר...':(isEdit?'💾 עדכן לקוח':'💾 שמור לקוח');
+  h+=`<button class="save-btn" style="background:${btnDisabled?'#ccc':color}" ${btnDisabled?'disabled':''} onclick="saveCust()">
+    ${btnLabel}</button></div>`;
   return h;
 }
 function custField(f){
@@ -953,7 +956,7 @@ function renderInvForm(isTax){
 
     <div class="field"><label>סכום התשלום ₪ <small>(עמודה AF) *</small></label>
       <input type="text" inputmode="decimal" class="finput num" value="${esc(f.AF)}"
-        oninput="uf('iForm','AF',this.value);renderSaveBtn()">
+        oninput="uf('iForm','AF',this.value)">
     </div>
 
     ${isCash?`
@@ -965,11 +968,11 @@ function renderInvForm(isTax){
     ${isChq?`
     <div class="field"><label>מספר שיק <small>(עמודה AH) *</small></label>
       <input type="text" inputmode="numeric" class="finput num" value="${esc(f.AH)}"
-        oninput="uf('iForm','AH',this.value);renderSaveBtn()">
+        oninput="uf('iForm','AH',this.value)">
     </div>
     <div class="field"><label>תאריך פרעון שיק <small>(עמודה AG) *</small></label>
       <input type="text" class="finput" value="${esc(f.AG||tod())}"
-        oninput="uf('iForm','AG',this.value);renderSaveBtn()">
+        oninput="uf('iForm','AG',this.value)">
     </div>
     <div class="field"><label>צילום שיק <small>(עמודה AI) *</small></label>
       <input type="file" id="cheque-photo" accept="image/*" capture="environment"
@@ -988,7 +991,7 @@ function renderInvForm(isTax){
     <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
       <input type="text" inputmode="numeric" class="finput num" value="${esc(f._overInvNum||'')}"
         placeholder="מספר חשבונית"
-        oninput="uf('iForm','_overInvNum',this.value);renderSaveBtn()">
+        oninput="uf('iForm','_overInvNum',this.value)">
     </div>`:''}
     `:''}
 
@@ -998,9 +1001,8 @@ function renderInvForm(isTax){
     </div>`;
   }
 
-  const validErr=isTax?taxFormErrors():null;
-  const btnDisabled=S.saving||!!validErr;
-  const btnLabel=S.saving?'⏳ שומר...':(validErr?'⛔ '+validErr:(isTax?'💾 שמור חשמ"ק':'💾 שמור חשבונית'));
+  const btnDisabled=S.saving;
+  const btnLabel=S.saving?'⏳ שומר...':(isTax?'💾 שמור חשמ"ק':'💾 שמור חשבונית');
   h+=`<button class="save-btn" style="background:${btnDisabled?'#ccc':color}" ${btnDisabled?'disabled':''} onclick="saveInv(${isTax})">
     ${btnLabel}</button></div>`;
   return h;
@@ -1028,7 +1030,6 @@ function renderReceiptForm(){
   const color=tc();const rf=S.rForm;
   const isChk=rf.B==='שיק';
   const isCash=rf.B==='מזומן';
-  const validErr=receiptFormErrors();
 
   let h=`<div class="fwrap" style="--tc:${color}">`;
   if(S.msg)h+=alertHtml(S.msg);
@@ -1050,7 +1051,7 @@ function renderReceiptForm(){
     h+=`<div class="field"><label>חיפוש לקוח</label>
       <div class="field-wrap">
         <input type="text" id="r-H" class="finput" value="${esc(rf._custName)}"
-          placeholder="הקלד שם לקוח, שם עסק או תז"
+          placeholder="הקלד שם לקוח, שם עסק או ת\"ז"
           oninput="onCustSearch(this.value)" autocomplete="off">
         ${S.showSuggest&&S.suggest.length?suggestHtmlReceipt():''}
       </div>
@@ -1176,8 +1177,10 @@ function renderReceiptForm(){
     <textarea class="finput" id="r-G" rows="3" oninput="uf('rForm','G',this.value)">${esc(rf.G)}</textarea>
   </div>`;
 
-  h+=`<button class="save-btn" onmousedown="captureReceiptFields()" style="background:${S.saving?'#ccc':color}" onclick="saveReceipt()">
-    ${S.saving?'⏳ שומר...':'💾 שמור קבלה'}</button></div>`;
+  const btnDisabled=S.saving;
+  const btnLabel=S.saving?'⏳ שומר...':'💾 שמור קבלה';
+  h+=`<button class="save-btn" onmousedown="captureReceiptFields()" style="background:${btnDisabled?'#ccc':color}" ${btnDisabled?'disabled':''} onclick="saveReceipt()">
+    ${btnLabel}</button></div>`;
   return h;
 }
 
@@ -1647,7 +1650,10 @@ function editCust(custId){
 }
 
 async function saveCust(){
-  if(!S.cForm.A?.trim()){S.msg={t:'e',m:'שם לקוח הוא שדה חובה'};render();return;}
+  if(!S.cForm.A?.trim()){
+    showToast('❌ שם לקוח הוא שדה חובה', 'err');
+    return;
+  }
   if(S.cForm.D)S.cForm.D=fmtPhone(S.cForm.D);
   const isEdit=!!S.cForm._editId;
   S.saving=true;S.msg=null;render();
@@ -1662,7 +1668,11 @@ async function saveCust(){
     }
     S.msg={t:'s',m:isEdit?'פרטי הלקוח עודכנו!':'הלקוח נשמר בהצלחה!'};S.saving=false;render();
     setTimeout(()=>{S.screen='list';S.cForm=efC();S.msg=null;setHeader();render();},1500);
-  }catch(e){S.msg={t:'e',m:e.message||'שגיאה'};S.saving=false;render();}
+  }catch(e){
+    showToast('❌ '+(e.message||'שגיאה'), 'err');
+    S.saving=false;
+    render();
+  }
 }
 
 async function saveReceipt(){
@@ -1719,11 +1729,17 @@ async function saveInv(isTax){
   const f=S.iForm;
   const calc=calcInv(f);
 
-  if(!f.A?.trim()){S.msg={t:'e',m:'ת"ז / ח"פ של הלקוח הוא שדה חובה'};render();return;}
+  if(!f.A?.trim()){
+    showToast('❌ ת"ז / ח"פ של הלקוח הוא שדה חובה', 'err');
+    return;
+  }
 
   if(isTax){
     const err=taxFormErrors();
-    if(err){S.msg={t:'e',m:err};render();return;}
+    if(err){
+      showToast('❌ '+err, 'err');
+      return;
+    }
 
     const paid=parseFloat(f.AF||0);
     const total=calc.withVat;
@@ -1771,7 +1787,11 @@ async function saveInv(isTax){
       if(isTax){S.tsState='idle';S.tax=[];}else{S.isState='idle';S.invoices=[];}
       setHeader();if(isTax)loadTax();else loadInvoices();
     },2500);
-  }catch(e){S.msg={t:'e',m:'שגיאה: '+e.name+' — '+e.message};S.saving=false;render();}
+  }catch(e){
+    showToast('❌ שגיאה: '+e.name+' — '+e.message, 'err');
+    S.saving=false;
+    render();
+  }
 }
 
 function taxFormErrors(){
@@ -1793,17 +1813,6 @@ function taxFormErrors(){
     if(!f._photoTaken)return 'צלם את השיק';
   }
   return null;
-}
-
-function renderSaveBtn(){
-  const btn=document.querySelector('.save-btn[onclick^="saveInv"]');
-  if(!btn)return;
-  const isTax=S.screen==='new-tax';
-  const validErr=isTax?taxFormErrors():null;
-  const dis=S.saving||!!validErr;
-  btn.disabled=dis;
-  btn.style.background=dis?'#ccc':tc();
-  btn.textContent=S.saving?'⏳ שומר...':(validErr?'⛔ '+validErr:(isTax?'💾 שמור חשמ"ק':'💾 שמור חשבונית'));
 }
 
 function onPhotoChange(input){

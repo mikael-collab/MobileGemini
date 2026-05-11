@@ -719,7 +719,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.11</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.12</div></div>`;
   return h;
 }
 
@@ -948,7 +948,7 @@ function renderInvForm(isTax){
     h+=`<div class="fdivider"><hr><span>💳 תשלום</span><hr></div>
 
     <div class="field"><label>סוג תשלום <small>(עמודה AE) *</small></label>
-      <select class="finput" onchange="uf('iForm','AE',this.value);renderSaveBtn()">
+      <select class="finput" onchange="uf('iForm','AE',this.value);render()">
         <option value="">-- בחר --</option>
         ${PAYMENT_TYPES.map(pt=>`<option${f.AE===pt?' selected':''}>${pt}</option>`).join('')}
       </select>
@@ -956,44 +956,46 @@ function renderInvForm(isTax){
 
     <div class="field"><label>סכום התשלום ₪ <small>(עמודה AF) *</small></label>
       <input type="text" inputmode="decimal" class="finput num" value="${esc(f.AF)}"
-        oninput="uf('iForm','AF',this.value);renderSaveBtn()">
+        oninput="uf('iForm','AF',this.value);renderSaveBtn()"
+        onchange="uf('iForm','AF',this.value);render()">
     </div>
 
-    ${isCash?`
-    <div class="field"><label>תאריך תשלום <small>(עמודה AG)</small></label>
-      <input type="text" class="finput" value="${esc(f.AG||tod())}" readonly
-        style="background:#f0f0f0;color:#888;cursor:default">
-    </div>`:''}
+    <div id="inv-cash-date" style="display:${isCash?'block':'none'}">
+      <div class="field"><label>תאריך תשלום <small>(עמודה AG)</small></label>
+        <input type="text" class="finput" value="${esc(f.AG||tod())}" readonly
+          style="background:#f0f0f0;color:#888;cursor:default">
+      </div>
+    </div>
 
-    ${isChq?`
-    <div class="field"><label>מספר שיק <small>(עמודה AH) *</small></label>
-      <input type="text" inputmode="numeric" class="finput num" value="${esc(f.AH)}"
-        oninput="uf('iForm','AH',this.value);renderSaveBtn()">
+    <div id="inv-chk-fields" style="display:${isChq?'block':'none'}">
+      <div class="field"><label>מספר שיק <small>(עמודה AH) *</small></label>
+        <input type="text" inputmode="numeric" class="finput num" value="${esc(f.AH)}"
+          oninput="uf('iForm','AH',this.value);renderSaveBtn()">
+      </div>
+      <div class="field"><label>תאריך פרעון שיק <small>(עמודה AG) *</small></label>
+        <input type="text" class="finput" value="${esc(f.AG||tod())}"
+          oninput="uf('iForm','AG',this.value);renderSaveBtn()">
+      </div>
+      <div class="field"><label>צילום שיק <small>(עמודה AI) *</small></label>
+        <input type="file" id="cheque-photo" accept="image/*" capture="environment"
+          style="position:absolute;width:1px;height:1px;opacity:0;" onchange="onPhotoChange(this)">
+        <button type="button" class="finput"
+          style="text-align:center;cursor:pointer;background:${f._photoTaken?'#e6f4ea':'#f8f8f8'};color:${f._photoTaken?'#1e8e3e':'#555'};font-size:14px;"
+          onclick="document.getElementById('cheque-photo').click()">
+          ${f._photoTaken?'✅ תמונה צולמה — לחץ לשינוי':'📷 צלם שיק'}
+        </button>
+        ${f._photoDataUrl?`<img src="${f._photoDataUrl}" style="margin-top:8px;width:100%;border-radius:8px;max-height:160px;object-fit:cover">`:''}
+      </div>
+      ${isOver?`
+      <div style="background:#fff8e1;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#e65100;">
+        ⚠️ השיק גבוה ב-₪${Math.round(paid-total).toLocaleString('he-IL')} — יש לציין מספר החשבונית שעבורה שולם ההפרש
+      </div>
+      <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
+        <input type="text" inputmode="numeric" class="finput num" value="${esc(f._overInvNum||'')}"
+          placeholder="מספר חשבונית"
+          oninput="uf('iForm','_overInvNum',this.value);renderSaveBtn()">
+      </div>`:''}
     </div>
-    <div class="field"><label>תאריך פרעון שיק <small>(עמודה AG) *</small></label>
-      <input type="text" class="finput" value="${esc(f.AG||tod())}"
-        oninput="uf('iForm','AG',this.value);renderSaveBtn()">
-    </div>
-    <div class="field"><label>צילום שיק <small>(עמודה AI) *</small></label>
-      <input type="file" id="cheque-photo" accept="image/*" capture="environment"
-        style="position:absolute;width:1px;height:1px;opacity:0;" onchange="onPhotoChange(this)">
-      <button type="button" class="finput"
-        style="text-align:center;cursor:pointer;background:${f._photoTaken?'#e6f4ea':'#f8f8f8'};color:${f._photoTaken?'#1e8e3e':'#555'};font-size:14px;"
-        onclick="document.getElementById('cheque-photo').click()">
-        ${f._photoTaken?'✅ תמונה צולמה — לחץ לשינוי':'📷 צלם שיק'}
-      </button>
-      ${f._photoDataUrl?`<img src="${f._photoDataUrl}" style="margin-top:8px;width:100%;border-radius:8px;max-height:160px;object-fit:cover">`:''}
-    </div>
-    ${isOver?`
-    <div style="background:#fff8e1;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#e65100;">
-      ⚠️ השיק גבוה ב-₪${Math.round(paid-total).toLocaleString('he-IL')} — יש לציין מספר החשבונית שעבורה שולם ההפרש
-    </div>
-    <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
-      <input type="text" inputmode="numeric" class="finput num" value="${esc(f._overInvNum||'')}"
-        placeholder="מספר חשבונית"
-        oninput="uf('iForm','_overInvNum',this.value);renderSaveBtn()">
-    </div>`:''}
-    `:''}
 
     <div class="field"><label>הערות <small>(עמודה AJ)</small></label>
       <textarea class="finput" rows="3" id="inv-AJ"
@@ -1118,24 +1120,11 @@ function renderReceiptForm(){
 
   <div class="field"><label>סכום התשלום ₪ <small>(עמודה C) *</small></label>
     <input type="text" inputmode="decimal" class="finput num" id="r-C" value="${esc(rf.C)}"
-      oninput="uf('rForm','C',this.value);renderSaveBtnRec()" onchange="uf('rForm','C',this.value);renderSaveBtnRec()">
-  </div>`;
+      oninput="uf('rForm','C',this.value);renderSaveBtnRec()" 
+      onchange="uf('rForm','C',this.value);render()">
+  </div>
 
-  if(rf._invTotal&&rf.B){
-    const total=parseFloat(rf._invTotal)||0;
-    const paid=parseFloat(rf.C)||0;
-    if(isCash&&total>0){
-      h+=`<div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#555">
-        💵 מזומן: עד ₪${Math.round(total).toLocaleString('he-IL')} בלבד
-      </div>`;
-    }else if(isChk&&total>0&&paid>total+0.5){
-      h+=`<div style="background:#fff8e1;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#e65100">
-        🏦 שיק ₪${Math.round(paid).toLocaleString('he-IL')} — ב-₪${Math.round(paid-total).toLocaleString('he-IL')} מעל היתרה. יש למלא מספר חשבונית להפרש
-      </div>`;
-    }
-  }
-
-  h+=`<div id="receipt-cash-date" style="display:${isCash?'block':'none'}">
+  <div id="receipt-cash-date" style="display:${isCash?'block':'none'}">
     <div class="field"><label>תאריך תשלום <small>(עמודה D)</small></label>
       <input type="text" class="finput" value="${esc(rf.D||tod())}" readonly
         style="background:#f0f0f0;color:#888;cursor:default">
@@ -1145,11 +1134,11 @@ function renderReceiptForm(){
   <div id="receipt-chk-fields" style="display:${isChk?'block':'none'}">
     <div class="field"><label>מספר שיק <small>(עמודה E) *</small></label>
       <input type="text" inputmode="numeric" id="r-E" class="finput num" value="${esc(rf.E)}"
-        oninput="uf('rForm','E',this.value);renderSaveBtnRec()" onchange="uf('rForm','E',this.value);renderSaveBtnRec()">
+        oninput="uf('rForm','E',this.value);renderSaveBtnRec()">
     </div>
     <div class="field"><label>תאריך פרעון שיק <small>(עמודה D) *</small></label>
       <input type="text" id="r-D" class="finput" value="${esc(rf.D||tod())}"
-        oninput="uf('rForm','D',this.value);renderSaveBtnRec()" onchange="uf('rForm','D',this.value);renderSaveBtnRec()">
+        oninput="uf('rForm','D',this.value);renderSaveBtnRec()">
     </div>
     <div class="field"><label>צילום שיק <small>(עמודה F) *</small></label>
       <input type="file" id="receipt-cheque-photo" accept="image/*" capture="environment"
@@ -1168,11 +1157,11 @@ function renderReceiptForm(){
       </div>
       <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
         <input type="text" inputmode="numeric" id="r-overinv" class="finput num" value="${esc(rf._overInvNum||'')}"
-          oninput="uf('rForm','_overInvNum',this.value);renderSaveBtnRec()" onchange="uf('rForm','_overInvNum',this.value);renderSaveBtnRec()">
+          oninput="uf('rForm','_overInvNum',this.value);renderSaveBtnRec()">
       </div>`:'';})()}
-  </div>`;
+  </div>
 
-  h+=`<div class="field"><label>הערות <small>(עמודה G)</small></label>
+  <div class="field"><label>הערות <small>(עמודה G)</small></label>
     <textarea class="finput" id="r-G" rows="3" oninput="uf('rForm','G',this.value)">${esc(rf.G)}</textarea>
   </div>`;
 
@@ -1867,25 +1856,25 @@ async function saveInv(isTax){
   }
 }
 
-function renderSaveBtn(){
-  const btn=document.getElementById('btn-save-inv');
-  if(!btn)return;
-  const isTax = S.screen==='new-tax';
-  const validErr = isTax ? taxFormErrors() : invoiceFormErrors();
-  const dis = S.saving || !!validErr;
-  btn.disabled = dis;
-  btn.style.background = dis ? '#ccc' : tc();
-  btn.textContent = S.saving ? '⏳ שומר...' : (validErr ? '⛔ ' + validErr : (isTax ? '💾 שמור חשמ"ק' : '💾 שמור חשבונית'));
-}
-
-function renderSaveBtnRec(){
-  const btn=document.getElementById('btn-save-rec');
-  if(!btn)return;
-  const validErr = receiptFormErrors();
-  const dis = S.saving || !!validErr;
-  btn.disabled = dis;
-  btn.style.background = dis ? '#ccc' : tc();
-  btn.textContent = S.saving ? '⏳ שומר...' : (validErr ? '⛔ ' + validErr : '💾 שמור קבלה');
+function taxFormErrors(){
+  const f=S.iForm;
+  const calc=calcInv(f);
+  const total=calc.withVat;
+  const paid=parseFloat(f.AF||0);
+  const isOver=f.AE==='שיק'&&total>0&&paid>total+0.5;
+  if(!f.A?.trim())return 'ת"ז / ח"פ הוא שדה חובה';
+  if(!f.AE)return 'בחר סוג תשלום';
+  if(!f.AF?.trim())return 'הזן סכום תשלום';
+  if(f.AE==='מזומן'&&total>0&&paid>total+0.5)
+    return `מזומן לא יכול לעלות על ₪${Math.round(total).toLocaleString('he-IL')}`;
+  if(isOver&&!f._overInvNum?.trim())
+    return 'הזן מספר חשבונית עבור ההפרש';
+  if(f.AE==='שיק'){
+    if(!f.AH?.trim())return 'הזן מספר שיק';
+    if(!f.AG?.trim())return 'הזן תאריך פרעון שיק';
+    if(!f._photoTaken)return 'צלם את השיק';
+  }
+  return null;
 }
 
 window.addEventListener('DOMContentLoaded',()=>{

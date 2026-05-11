@@ -1105,4 +1105,744 @@ function renderReceiptForm(){
     const total=parseFloat(rf._invTotal)||0;
     const paid=parseFloat(rf.C)||0;
     if(isCash&&total>0){
-      h+=`<div style="background:#f0f4ff;border
+      h+=`<div style="background:#f0f4ff;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#555">
+        💵 מזומן: עד ₪${Math.round(total).toLocaleString('he-IL')} בלבד
+      </div>`;
+    }else if(isChk&&total>0&&paid>total+0.5){
+      h+=`<div style="background:#fff8e1;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#e65100">
+        🏦 שיק ₪${Math.round(paid).toLocaleString('he-IL')} — ב-₪${Math.round(paid-total).toLocaleString('he-IL')} מעל היתרה. יש למלא מספר חשבונית להפרש
+      </div>`;
+    }
+  }
+
+  h+=`<div id="receipt-cash-date" style="display:${isCash?'block':'none'}">
+    <div class="field"><label>תאריך תשלום <small>(עמודה D)</small></label>
+      <input type="text" class="finput" value="${esc(rf.D||tod())}" readonly
+        style="background:#f0f0f0;color:#888;cursor:default">
+    </div>
+  </div>
+
+  <div id="receipt-chk-fields" style="display:${isChk?'block':'none'}">
+    <div class="field"><label>מספר שיק <small>(עמודה E) *</small></label>
+      <input type="text" inputmode="numeric" id="r-E" class="finput num" value="${esc(rf.E)}"
+        oninput="uf('rForm','E',this.value)" onchange="uf('rForm','E',this.value)">
+    </div>
+    <div class="field"><label>תאריך פרעון שיק <small>(עמודה D) *</small></label>
+      <input type="text" id="r-D" class="finput" value="${esc(rf.D||tod())}"
+        oninput="uf('rForm','D',this.value)" onchange="uf('rForm','D',this.value)">
+    </div>
+    <div class="field"><label>צילום שיק <small>(עמודה F) *</small></label>
+      <input type="file" id="receipt-cheque-photo" accept="image/*" capture="environment"
+        style="display:none" onchange="onReceiptPhotoChange(this)">
+      <button type="button" class="finput"
+        style="text-align:center;cursor:pointer;background:${rf._photoTaken?'#e6f4ea':'#f8f8f8'};color:${rf._photoTaken?'#1e8e3e':'#555'};font-size:14px;"
+        onclick="document.getElementById('receipt-cheque-photo').click()">
+        ${rf._photoTaken?'✅ תמונה צולמה — לחץ לשינוי':'📷 צלם שיק'}
+      </button>
+      ${rf._photoDataUrl?`<img src="${rf._photoDataUrl}" style="margin-top:8px;width:100%;border-radius:8px;max-height:160px;object-fit:cover">`:''}
+    </div>
+    ${(()=>{const paid=parseFloat(rf.C)||0;const total=parseFloat(rf._invTotal)||0;
+      return isChk&&total>0&&paid>total+0.5?`
+      <div style="background:#fff8e1;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:13px;color:#e65100">
+        ⚠️ שיק גבוה ב-₪${Math.round(paid-total).toLocaleString('he-IL')} — הזן מספר חשבונית להפרש
+      </div>
+      <div class="field"><label>מספר חשבונית עבור ההפרש *</label>
+        <input type="text" inputmode="numeric" id="r-overinv" class="finput num" value="${esc(rf._overInvNum||'')}"
+          oninput="uf('rForm','_overInvNum',this.value)" onchange="uf('rForm','_overInvNum',this.value)">
+      </div>`:'';})()}
+  </div>`;
+
+  h+=`<div class="field"><label>הערות <small>(עמודה G)</small></label>
+    <textarea class="finput" id="r-G" rows="3" oninput="uf('rForm','G',this.value)">${esc(rf.G)}</textarea>
+  </div>`;
+
+  h+=`<button class="save-btn" onmousedown="captureReceiptFields()" style="background:${S.saving?'#ccc':color}" onclick="saveReceipt()">
+    ${S.saving?'⏳ שומר...':'💾 שמור קבלה'}</button></div>`;
+  return h;
+}
+
+// ── Receipt List ──
+function renderRecList(){
+  const {receipts:data,rsState:state}=S;const color=tc();
+  if(state==='error')return errScreen(S.errors.receipts,'loadReceipts()','קבלות',color);
+  if(state!=='ok')return statusHtml(state,'loadReceipts()','קבלות');
+  if(!data.length)return`<div class="status"><p style="color:#999;margin-bottom:16px">אין קבלות</p>
+    <button onclick="loadReceipts()" style="background:${color};color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">טען</button></div>`;
+  let h=`<div style="padding-bottom:24px">`;
+  [...data].reverse().forEach((r,i)=>{
+    const id=`rec-${r._id}`;const isE=S.expId===id;const bg=rowBg(r,isE);
+    const num=nz(r.J)||nz(r.A)||`#${i+1}`;
+    h+=`<div class="card${isE?' exp':''}" style="background:${bg};${isE?`--tc:${color}`:''}">
+      <div class="card-hdr" onclick="tog('${id}')">
+        <div class="r1" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:7px">
+            <span class="nbadge" style="background:${color}">קבלה ${esc(num)}</span>
+            ${nz(r.H)?`<span style="font-weight:600;font-size:14px;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(r.H)}</span>`:''}
+          </div>
+          ${nz(r.C)?`<span style="font-size:15px;font-weight:700;color:${color}">${fmt(r.C)}</span>`:''}
+        </div>
+        <div class="r2">
+          ${nz(r.B)?`<span class="tag">${esc(r.B)}</span>`:''}
+          ${nz(r.D)?`<span>📅 ${esc(r.D)}</span>`:''}
+          ${nz(r.A)?`<span style="color:#bbb">חשב׳ ${esc(r.A)}</span>`:''}
+          ${nz(r.E)?`<span class="tag blue">🏦 שיק ${esc(r.E)}</span>`:''}
+          ${(()=>{if(!nz(r.A))return'';const bal=getInvBalance(r.A);
+            return bal>0.5?`<span style="font-size:11px;color:#e65100">יתרה: ₪${Math.round(bal).toLocaleString('he-IL')}</span>`
+              :`<span style="font-size:11px;color:#1e8e3e">✓ שולם</span>`;})()} 
+        </div>
+        <div class="r3" style="justify-content:flex-end">
+          <span class="toggle-hint" style="color:${isE?color:'#bbb'}">${isE?'▲ סגור':'▼ פרטים'}</span>
+        </div>
+      </div>`;
+    if(isE){
+      h+=`<div class="card-body"><div class="g2" style="margin-bottom:8px">`;
+      RF.filter(f=>!f.wide&&nz(r[f.k])).forEach(f=>{
+        h+=`<div class="gcell"><div class="glabel">${f.icon} ${f.label}</div>
+          <div class="gval" style="color:${f.money?color:'#222'}">${f.money?fmt(r[f.k]):esc(r[f.k])}</div></div>`;
+      });
+      h+=`</div>`;
+      RF.filter(f=>f.wide&&nz(r[f.k])).forEach(f=>{
+        h+=`<div class="gcell wide" style="margin-bottom:8px"><div class="glabel">${f.icon} ${f.label}</div>
+          <div class="gval">${esc(r[f.k])}</div></div>`;
+      });
+      h+=`</div>`;
+    }
+    h+=`</div>`;
+  });
+  return h+`</div>`;
+}
+
+// ── Document List ──
+function renderDocList(data,state,isTax){
+  const label=isTax?'חשבוניות/קבלות':'חשבוניות';
+  const reload=isTax?'loadTax()':'loadInvoices()';
+  const color=tc();const errMsg=S.errors[isTax?'tax':'invoices'];
+  const totalKey=isTax?'AD':'AE';const numKey=isTax?'AK':'AF';
+  const tail=isTax?TAX_TAIL:INV_TAIL;
+  if(state==='error')return errScreen(errMsg,reload,label,color);
+  if(state!=='ok')return statusHtml(state,reload,label);
+  if(!data.length)return`<div class="status">
+    <p style="font-size:36px;margin-bottom:10px">${isTax?'📋':'📄'}</p>
+    <p style="color:#999;margin-bottom:6px">אין ${label} שהושלמו</p>
+    <p style="font-size:12px;color:#bbb;margin-bottom:16px">רק שורות עם סכום מאושר יוצגו</p>
+    <button onclick="${reload}" style="background:${color};color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer">↻ רענן</button>
+  </div>`;
+
+  let h=`<div style="padding-bottom:24px">`;
+
+  [...data].reverse().forEach((r,i)=>{
+    const id=`${isTax?'t':'v'}-${r._id}`;const isE=S.expId===id;const bg=rowBg(r,isE);
+    const totVAT=nz(r[totalKey]);const invNum=nz(r[numKey]);
+    const bizName=nz(r.B);const custId=nz(r.A);const date=nz(r.C);
+    const prods=PRODS.filter(p=>{const q=parseFloat(r[p.qk]);return!isNaN(q)&&q>0;});
+    const totItems=prods.reduce((s,p)=>s+(parseFloat(r[p.qk])||0),0);
+    const balance=(!isTax&&invNum)?getInvBalance(invNum):null;
+    const hasPartialPay=balance!==null&&balance<parseMoney(totVAT)-0.5;
+
+    h+=`<div class="card${isE?' exp':''}" style="background:${bg};${isE?`--tc:${color}`:''}">
+      <div class="card-hdr" onclick="tog('${id}')">
+        <div class="r1">
+          ${invNum?`<span class="nbadge" style="background:${color}">#${esc(invNum)}</span>`:''}
+          <span style="font-weight:600;font-size:14px;color:#222;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(bizName||custId||'—')}</span>
+          <div style="text-align:left;flex-shrink:0">
+            ${totVAT?`<div style="font-size:15px;font-weight:700;color:${color}">${fmt(totVAT)}</div>`:''}
+            ${hasPartialPay?`<div style="font-size:11px;font-weight:700;color:#e65100">יתרה: ₪${Math.round(balance).toLocaleString('he-IL')}</div>`:''}
+            ${balance===0&&totVAT?`<div style="font-size:11px;color:#1e8e3e;font-weight:600">✓ שולם</div>`:''}
+          </div>
+        </div>
+        <div class="r2">
+          ${date?`<span>📅 ${esc(date)}</span>`:''}
+          ${prods.slice(0,3).map(p=>`<span class="tag">${p.em} ×${r[p.qk]}</span>`).join('')}
+          ${prods.length>3?`<span style="font-size:11px;color:#888">+${prods.length-3}</span>`:''}
+          ${totItems>0?`<span style="font-size:11px;color:#aaa;margin-right:auto">${totItems} יח'</span>`:''}
+        </div>
+        <div class="r3" style="justify-content:flex-end">
+          <span class="toggle-hint" style="color:${isE?color:'#bbb'}">${isE?'▲ סגור':'▼ פרטים'}</span>
+        </div>
+      </div>`;
+    if(isE){
+      h+=`<div class="card-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+          ${custId?`<span class="id-badge">${esc(custId)}</span>`:''}
+          ${bizName?`<span style="font-size:13px;font-weight:600">${esc(bizName)}</span>`:''}
+          ${date?`<span style="font-size:12px;color:#888;margin-right:auto">📅 ${esc(date)}</span>`:''}
+        </div>`;
+      if(prods.length){
+        h+=`<div class="dtable" style="margin-bottom:10px">
+          <div class="dthead" style="background:${color}"><span>פירוט הזמנה</span><span>${totItems} יח'</span></div>`;
+        prods.forEach(p=>{
+          h+=`<div class="prod-row">
+            <div style="display:flex;align-items:center">
+              <span class="prod-em">${p.em}</span>
+              <div><div class="prod-name">${p.short}</div><div class="prod-sub">${p.heb} • ${p.nic}mg</div></div>
+            </div>
+            <span class="prod-qty" style="color:${color}">${r[p.qk]} יח'</span>
+          </div>`;
+        });
+        h+=`</div>`;
+      }
+      const pricing=[
+        nz(r.Z)&&{l:'מחיר ליחידה (לפני מע"מ)',vv:fmt(r.Z)},
+        nz(r.AA)&&{l:'סה"כ לפני מע"מ',vv:fmt(r.AA)},
+        nz(r.AB)&&{l:'הנחה',vv:r.AB+'%',disc:true},
+        nz(r.AC)&&{l:'סה"כ אחר הנחה (לפני מע"מ)',vv:fmt(r.AC)},
+        totVAT&&{l:'סה"כ כולל מע"מ',vv:fmt(totVAT),hi:true},
+        hasPartialPay&&{l:'שולם עד כה',vv:`₪${Math.round(parseMoney(totVAT)-balance).toLocaleString('he-IL')}`,paid:true},
+        hasPartialPay&&{l:'יתרה לתשלום',vv:`₪${Math.round(balance).toLocaleString('he-IL')}`,bal:true},
+        balance===0&&totVAT&&{l:'סטטוס',vv:'✓ שולם במלואו',done:true},
+      ].filter(Boolean);
+      if(pricing.length){
+        h+=`<div class="dtable" style="margin-bottom:10px">`;
+        pricing.forEach((row,ri)=>{
+          const bgStyle=row.hi?`background:${color}15`:row.bal?'background:#fff3e0':row.done?'background:#e6f4ea':'';
+          const valColor=row.hi?color:row.disc?'#c62828':row.bal?'#e65100':row.done?'#1e8e3e':row.paid?'#555':'#222';
+          const valSize=row.hi||row.bal?15:13;
+          h+=`<div class="dtrow" style="${ri===0?'border-top:none;':''}${bgStyle}">
+            <span class="dtlabel">${row.l}</span>
+            <span class="dtval" style="color:${valColor};font-size:${valSize}px;font-weight:${row.hi||row.bal||row.done?700:500}">${row.vv}</span>
+          </div>`;
+        });
+        h+=`</div>`;
+      }
+      const payF=tail.filter(f=>nz(r[f.k]));
+      if(payF.length){
+        h+=`<div class="dtable"><div style="padding:7px 12px;background:#f5f5f5;border-bottom:.5px solid #ebebeb;font-size:12px;font-weight:600;color:#666">פרטי תשלום</div>`;
+        payF.filter(f=>!f.wide).forEach((f,fi)=>{h+=`<div class="dtrow"${fi===0?' style="border-top:none"':''}>
+          <span class="dtlabel">${f.label}</span>
+          <span class="dtval" style="color:${f.money?color:'#222'}">${f.money?fmt(r[f.k]):esc(r[f.k])}</span>
+        </div>`;});
+        payF.filter(f=>f.wide).forEach(f=>{h+=`<div style="padding:8px 12px;border-top:.5px solid #f0f0f0">
+          <div class="glabel">${f.label}</div>
+          <div style="font-size:13px;color:#222;margin-top:2px">${esc(r[f.k])}</div></div>`;});
+        h+=`</div>`;
+      }
+      if(!isTax&&isInvOpen(r)){
+        h+=`<button onclick="openNewReceiptFromInv(${r._id})"
+          style="width:100%;margin-top:10px;padding:11px;border-radius:8px;border:1.5px solid ${color};
+          background:transparent;color:${color};font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
+          🧾 צור קבלה לחשבונית זו
+        </button>`;
+      }
+      h+=`</div>`;
+    }
+    h+=`</div>`;
+  });
+  return h+`</div>`;
+}
+
+// ── Shared Helpers ──
+let _toastTimer=null;
+function showToast(msg,type,duration){
+  const c=document.getElementById('toast-container');
+  if(!c)return;
+  clearTimeout(_toastTimer);
+  c.innerHTML=`<div class="toast ${type||'err'}">${esc(msg)}</div>`;
+  _toastTimer=setTimeout(()=>{c.innerHTML='';},duration||4000);
+}
+
+function alertHtml(msg){return`<div class="alert ${msg.t==='s'?'ok':'err'}">${msg.t==='s'?'✅ ':'❌ '}${esc(msg.m)}</div>`;}
+function errScreen(errMsg,reload,label,color){
+  return`<div class="status"><p style="font-size:30px;margin-bottom:10px">⚠️</p>
+    <p style="font-weight:600;color:#c62828;font-size:15px;margin-bottom:8px">שגיאה: ${label}</p>
+    ${errMsg?`<div style="background:#fce8e6;border-radius:8px;padding:10px;margin:0 16px 16px;font-size:11px;color:#c62828;direction:ltr;word-break:break-all">${esc(errMsg.slice(0,120))}</div>`:''}
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button onclick="${reload}" style="background:${color};color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer">↻ נסה שוב</button>
+      <button onclick="openSettings()" style="background:#37474f;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer">⚙️ אבחון</button>
+    </div></div>`;
+}
+function statusHtml(state,reload,label){
+  if(state==='loading'||state==='idle')
+    return`<div class="status"><div class="spinner"></div><p style="color:#999;font-size:14px">טוען ${label}...</p></div>`;
+  if(state==='busy')
+    return`<div class="status"><p style="font-size:30px;margin-bottom:10px">🔄</p>
+      <p style="font-weight:600;color:#e65100;font-size:16px;margin-bottom:8px">השרת עמוס</p>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">המתן דקה ונסה שוב.</p>
+      <button onclick="${reload}" style="background:#e65100;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">↻ נסה שוב</button></div>`;
+  return`<div class="status"><p style="font-size:30px;margin-bottom:10px">⚠️</p>
+    <p style="font-weight:500;color:#c62828;font-size:15px;margin-bottom:14px">שגיאה בטעינה</p>
+    <button onclick="${reload}" style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">נסה שוב</button></div>`;
+}
+
+// ── Events ──
+function bindAll(){
+  const si=document.getElementById('sinput');
+  if(si){
+    si.addEventListener('input',e=>{
+      S.search=e.target.value;
+      const fc=filteredC();
+      const cnt=document.getElementById('scnt');
+      if(cnt)cnt.textContent=`${fc.length} לקוחות${S.search?` (מתוך ${S.customers.length})`:''} `;
+    });
+  }
+}
+function clearSearch(){S.search='';render();setTimeout(()=>document.getElementById('sinput')?.focus(),50);}
+function tog(id){
+  S.expId=S.expId===id?null:id;render();
+  setTimeout(()=>document.querySelector('.card.exp')?.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+}
+async function cp(text,key){
+  try{await navigator.clipboard.writeText(text);}
+  catch{const t=document.createElement('textarea');t.value=text;t.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}
+  if(S.copiedTimer)clearTimeout(S.copiedTimer);
+  S.copied=key;render();
+  S.copiedTimer=setTimeout(()=>{S.copied=null;render();},2000);
+}
+function uf(formKey,k,val){S[formKey][k]=val;}
+function addDashC(){S.cForm.B=(S.cForm.B||'')+'-';const i=document.getElementById('f-B');if(i){i.value=S.cForm.B;i.focus();}}
+
+function updateInvBar(){
+  const f=S.iForm||{};
+  const calc=calcInv(f);
+  const price=parseFloat(f.Z)||0;
+  const cansEl=document.getElementById('st-cans');
+  const totEl=document.getElementById('st-total');
+  if(!cansEl)return;
+  if(price>0&&calc.totalQty>0){
+    cansEl.textContent=`${calc.totalQty} יח'`;
+    totEl.textContent=`₪${Math.round(calc.withVat).toLocaleString('he-IL')} כולל מע"מ`;
+  }else if(price>0){
+    cansEl.textContent=`מחיר ₪${fmtNum(price)}`;
+    totEl.textContent='הזן כמויות';
+  }else{
+    cansEl.textContent='הזן מחיר';
+    totEl.textContent='וכמויות';
+  }
+}
+
+function refreshCalc(){
+  const f=S.iForm;const calc=calcInv(f);const color=tc();
+  S.iForm.AA=calc.aa>0?fmtNum(calc.aa):'';
+  S.iForm.AC=calc.ac>0?fmtNum(calc.ac):'';
+  if(S.screen==='new-invoice')S.iForm.AE=calc.withVat>0?String(Math.round(calc.withVat)):'';
+  else S.iForm.AD=calc.withVat>0?String(Math.round(calc.withVat)):'';
+  updateInvBar();
+  const preview=document.getElementById('calc-preview');
+  if(!preview)return;
+  if(calc.totalQty>0&&parseFloat(f.Z)>0){
+    let inner=`<div class="calc-row"><span class="calc-label">סה"כ יחידות</span><span class="calc-val">${calc.totalQty}</span></div>
+    <div class="calc-row"><span class="calc-label">סה"כ לפני מע"מ</span><span class="calc-val">₪${fmtNum(calc.aa)}</span></div>`;
+    if(calc.disc>0)inner+=`<div class="calc-row"><span class="calc-label">אחרי הנחה ${calc.disc}%</span><span class="calc-val">₪${fmtNum(calc.ac)}</span></div>`;
+    inner+=`<div class="calc-row"><span class="calc-label">סה"כ כולל מע"מ 18%</span><span class="calc-val hi" style="--tc:${color}">₪${Math.round(calc.withVat).toLocaleString('he-IL')}</span></div>`;
+    preview.style.cssText='background:#f8f8f8;border-radius:10px;padding:4px;margin-bottom:12px';
+    preview.innerHTML=inner;
+  }else{
+    preview.style.cssText='';preview.innerHTML='';
+  }
+}
+
+function updProd(qk,val){
+  S.iForm[qk]=val.replace(/[^0-9]/g,'')||'0';
+  refreshCalc(); 
+}
+
+function onCustSearch(val){
+  const inp=document.getElementById('r-H');
+  const wrap=inp?.parentElement;
+  let box=document.getElementById('suggest-box');
+  if(val.length<2){S.suggest=[];if(box)box.remove();inp?.focus();return;}
+  const q=val.toLowerCase();
+  S.suggest=S.customers.filter(c=>['A','B','C'].some(k=>(c[k]||'').toLowerCase().includes(q)));
+  if(S.suggest.length&&wrap){
+    const inner=S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A)}','${esc(c.B)}')">
+      <div>${esc(c.C||c.A||'—')}</div><div class="sug-sub">${c.B?esc(c.B):''}</div>
+    </div>`).join('');
+    if(box)box.innerHTML=inner;
+    else{const el=document.createElement('div');el.className='suggest-box';el.id='suggest-box';el.innerHTML=inner;wrap.appendChild(el);}
+  }else if(box)box.remove();
+  inp?.focus();
+}
+
+function onInvCustSearch(val){
+  S.iForm.B=val;
+  const inp=document.getElementById('inv-B');
+  const wrap=inp?.parentElement;
+  let box=document.getElementById('suggest-box');
+  if(val.length<2){
+    S.suggest=[];S.showSuggest=false;
+    if(box)box.remove();
+    return;
+  }
+  const q=val.toLowerCase();
+  S.suggest=S.customers.filter(c=>['A','B','C'].some(k=>(c[k]||'').toLowerCase().includes(q)));
+  S.showSuggest=S.suggest.length>0;
+  if(S.showSuggest&&wrap){
+    const inner=S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickInvCust('${esc(c.B)}','${esc(c.C)}')">
+      <div>${esc(c.C||c.A||'—')}</div><div class="sug-sub">${c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
+    </div>`).join('');
+    if(box){box.innerHTML=inner;}
+    else{
+      const el=document.createElement('div');
+      el.className='suggest-box';el.id='suggest-box';
+      el.innerHTML=inner;wrap.appendChild(el);
+    }
+  }else if(box){box.remove();}
+  inp?.focus();
+}
+
+function pickCustomer(name,id){
+  const cust=S.customers.find(c=>c.B===id)||{A:name,B:id,C:''};
+  S.rForm._custName=cust.C||name;
+  S.rForm._custId=id;
+  S.rForm._openInvs=openInvsFor(id);
+  S.rForm._showOpenInvs=true;
+  if(S.rForm._openInvs.length===1){
+    const inv=S.rForm._openInvs[0];
+    S.rForm.A=nz(inv.AF)||'';
+    S.rForm._invTotal=String(getInvBalance(S.rForm.A));
+    S.rForm._invDate=nz(inv.C)||'';
+  }
+  S.showSuggest=false;S.suggest=[];
+  document.getElementById('suggest-box')?.remove();
+  const inp=document.getElementById('r-H');
+  if(inp)inp.value=cust.C||name;
+  render();
+}
+
+function captureReceiptFields(){
+  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
+  S.rForm.C=g('r-C').trim();
+  S.rForm.A=g('r-A').trim()||S.rForm.A;  
+  S.rForm.E=g('r-E').trim();
+  S.rForm.D=g('r-D').trim()||S.rForm.D;
+  const ov=g('r-overinv').trim();S.rForm._overInvNum=ov||S.rForm._overInvNum;
+  const gEl=document.getElementById('r-G');if(gEl)S.rForm.G=gEl.value;
+}
+function onReceiptPayTypeChange(val){
+  captureReceiptFields();
+  S.rForm.B=val;
+  render();
+}
+function clearReceiptCustomer(){
+  S.rForm._custName='';S.rForm._custId='';S.rForm._openInvs=[];
+  S.rForm.A='';S.rForm._invTotal='';S.rForm._invDate='';
+  render();
+}
+let _invLookupTimer=null;
+function onReceiptInvNumInput(val){
+  S.rForm.A=val;
+  clearTimeout(_invLookupTimer);
+  if(val.trim().length<7){
+    S.rForm._custId='';S.rForm._custName='';
+    S.rForm._invTotal='';S.rForm._invDate='';S.rForm._openInvs=[];
+    updateReceiptCustomerBlock();return;
+  }
+  const delay=val.trim().length===7?0:400;
+  _invLookupTimer=setTimeout(()=>{
+    const found=S.invoices.find(r=>nz(r.AF)===val.trim());
+    if(found){
+      S.rForm._custId=nz(found.A)||'';
+      S.rForm._custName=nz(found.B)||'';
+      S.rForm._invTotal=String(getInvBalance(val.trim()));
+      S.rForm._invDate=nz(found.C)||'';
+      S.rForm._openInvs=openInvsFor(S.rForm._custId);
+    }else{
+      S.rForm._custId='';S.rForm._custName='';
+      S.rForm._invTotal='';S.rForm._invDate='';S.rForm._openInvs=[];
+    }
+    updateReceiptCustomerBlock();
+  },delay);
+}
+
+function updateReceiptCustomerBlock(){
+  const rf=S.rForm;
+  const block=document.getElementById('receipt-cust-block');
+  const totalBlock=document.getElementById('receipt-inv-total');
+  if(block){
+    if(rf._custName||rf._custId){
+      block.style.display='flex';
+      const nameEl=block.querySelector('.rcb-name');
+      const idEl=block.querySelector('.rcb-id');
+      if(nameEl)nameEl.textContent=rf._custName||'—';
+      if(idEl)idEl.textContent=rf._custId||'';
+    }else{
+      block.style.display='none';
+    }
+  }
+  if(totalBlock){
+    if(rf._invTotal){
+      totalBlock.style.display='flex';
+      const tv=totalBlock.querySelector('.rcb-total');
+      if(tv)tv.textContent=fmt(rf._invTotal);
+    }else{
+      totalBlock.style.display='none';
+    }
+  }
+}
+function pickReceiptInv(invNum,invTotal,invDate){
+  S.rForm.A=invNum;
+  S.rForm._invTotal=invTotal;
+  S.rForm._invDate=invDate;
+  S.rForm._openInvs=[];  
+  render();
+}
+
+function onReceiptPhotoChange(input){
+  if(!input.files||!input.files[0])return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const MAX=800; // Increased quality to match the new POST capabilities
+      const ratio=Math.min(MAX/img.width,MAX/img.height,1);
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*ratio);c.height=Math.round(img.height*ratio);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      const b64=c.toDataURL('image/jpeg',0.6);
+      S.rForm._photoDataUrl=b64;S.rForm._photoBase64=b64;
+      S.rForm._photoTaken=true;
+      render();
+      setTimeout(()=>{
+        const img=document.querySelector('#receipt-chk-fields img');
+        if(img)img.scrollIntoView({behavior:'smooth',block:'nearest'});
+      },100);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function pickInvCust(custId,bizName){
+  S.iForm.A=custId;
+  S.iForm.B=bizName||''; 
+  S.showSuggest=false;S.suggest=[];
+  const inp=document.getElementById('inv-B');
+  if(inp)inp.value=bizName||'';
+  const idField=document.getElementById('inv-A');
+  if(idField)idField.value=custId||'';
+  document.getElementById('suggest-box')?.remove();
+}
+
+function editCust(custId){
+  const c=S.customers.find(x=>x._id===custId);
+  if(!c)return;
+  const form={};
+  CF.forEach(f=>{form[f.k]=c[f.k]||'';});
+  S.cForm=form;
+  S.cForm._editId=custId;   
+  S.cForm._editRow=c._row;  
+  S.screen='new-customer';S.msg=null;
+  setHeader();render();
+}
+
+async function saveCust(){
+  if(!S.cForm.A?.trim()){S.msg={t:'e',m:'שם לקוח הוא שדה חובה'};render();return;}
+  if(S.cForm.D)S.cForm.D=fmtPhone(S.cForm.D);
+  const isEdit=!!S.cForm._editId;
+  S.saving=true;S.msg=null;render();
+  try{
+    if(isEdit){
+      await apiPost({action:'updateCustomer',data:{...S.cForm},editRow:S.cForm._editRow});
+      const idx=S.customers.findIndex(c=>c._id===S.cForm._editId);
+      if(idx>=0)S.customers[idx]={...S.customers[idx],...S.cForm};
+    }else{
+      await apiPost({action:'addCustomer',data:{...S.cForm}});
+      S.customers.push({...S.cForm,_id:S.customers.length,_bg:'#ffffff'});
+    }
+    S.msg={t:'s',m:isEdit?'פרטי הלקוח עודכנו!':'הלקוח נשמר בהצלחה!'};S.saving=false;render();
+    setTimeout(()=>{S.screen='list';S.cForm=efC();S.msg=null;setHeader();render();},1500);
+  }catch(e){S.msg={t:'e',m:e.message||'שגיאה'};S.saving=false;render();}
+}
+
+async function saveReceipt(){
+  if(S.saving)return;
+  captureReceiptFields();
+  const err=receiptFormErrors();
+  if(err){showToast('❌ '+err,'err');return;}
+
+  const rf=S.rForm;
+  const paid=parseFloat(rf.C)||0;
+  const balance=parseFloat(rf._invTotal)||0;
+  const isOverpay=rf.B==='שיק'&&balance>0.5&&paid>balance+0.5;
+  const excess=isOverpay?Math.round((paid-balance)*100)/100:0;
+  const inv2=rf._overInvNum?.trim()||'';
+
+  if(balance>0.5&&paid<balance-0.5){
+    const diff=Math.round(balance-paid).toLocaleString('he-IL');
+    if(!confirm(`⚠️ תשלום חלקי\nשולם: ₪${Math.round(paid).toLocaleString('he-IL')}\nיתרה: ₪${Math.round(balance).toLocaleString('he-IL')}\nנותר: ₪${diff}\n\nלהמשיך?`))return;
+  }
+
+  const g1Notes=isOverpay
+    ?`שיק ₪${Math.round(paid).toLocaleString('he-IL')} — יתרה חשבונית זו ₪${Math.round(balance).toLocaleString('he-IL')}. ₪${Math.round(excess).toLocaleString('he-IL')} הועברו לחשבונית מספר ${inv2||'—'}${rf.G?.trim()?' | '+rf.G.trim():''}`
+    :rf.G||'';
+    
+  const data1={
+    A:rf.A||'',B:rf.B||'',
+    C:isOverpay?String(Math.round(balance*100)/100):rf.C,
+    D:rf.D||tod(),E:rf.E||'',G:g1Notes
+  };
+
+  S.saving=true;S.msg=null;render();
+  try{
+    // Upload image + row simultaneously
+    await apiPost({action:'addReceipt', data:data1, photoBase64: rf._photoBase64 || ''});
+    S.receipts.push({...data1,_id:S.receipts.length,_bg:'#ffffff'});
+
+    if(isOverpay&&inv2){
+      const g2Notes=`שיק ₪${Math.round(paid).toLocaleString('he-IL')} — ₪${Math.round(balance).toLocaleString('he-IL')} שולמו מאותו שיק עבור חשבונית מספר ${rf.A||'—'}`;
+      const data2={
+        A:inv2,B:rf.B,
+        C:String(Math.round(excess*100)/100),
+        D:rf.D||tod(),E:rf.E||'',G:g2Notes
+      };
+      // Send same image to the secondary row directly
+      await apiPost({action:'addReceipt', data:data2, photoBase64: rf._photoBase64 || ''});
+      S.receipts.push({...data2,_id:S.receipts.length,_bg:'#ffffff'});
+    }
+
+    S.saving=false;
+    showToast(isOverpay&&inv2?'✅ נשמרו 2 קבלות!':'✅ הקבלה נשמרה!','ok',2500);
+    setTimeout(()=>{S.screen='list';S.rForm=efR();S.msg=null;setHeader();render();},1600);
+  }catch(e){showToast('❌ '+(e.message||'שגיאה'),'err');S.saving=false;render();}
+}
+
+async function saveInv(isTax){
+  const f=S.iForm;
+  const calc=calcInv(f);
+
+  if(!f.A?.trim()){S.msg={t:'e',m:'ת"ז / ח"פ של הלקוח הוא שדה חובה'};render();return;}
+
+  if(isTax){
+    const err=taxFormErrors();
+    if(err){S.msg={t:'e',m:err};render();return;}
+
+    const paid=parseFloat(f.AF||0);
+    const total=calc.withVat;
+    if(total>0&&paid<total-0.5){
+      const diff=Math.round(total-paid).toLocaleString('he-IL');
+      if(!confirm(`⚠️ תשלום חלקי\nשולם: ₪${Math.round(paid).toLocaleString('he-IL')}\nלתשלום: ₪${Math.round(total).toLocaleString('he-IL')}\nיתרה: ₪${diff}\n\nלהמשיך?`))return;
+    }
+
+    if(f.AE==='שיק'&&total>0&&paid>total+0.5&&f._overInvNum?.trim()){
+      const diff=Math.round(paid-total).toLocaleString('he-IL');
+      const note=`ההפרש ₪${diff} שולם עבור חשבונית מספר ${f._overInvNum.trim()}`;
+      f.AJ=f.AJ?.trim()?(f.AJ.trim()+' | '+note):note;
+    }
+  }
+  
+  const qkCols=PRODS.map(p=>p.qk); 
+  const allowed=new Set(['A','C','Z','AB',...qkCols]);
+  if(isTax){['AE','AF','AG','AH','AJ','AK'].forEach(k=>allowed.add(k));}
+
+  const data={};
+  allowed.forEach(k=>{
+    const val=(f[k]||'').toString();
+    const isQty=qkCols.includes(k);
+    data[k]=(isQty&&(val===''||val==='0'))?'':val;
+  });
+
+  const qtySummary=PRODS.filter(p=>parseInt(data[p.qk])>0)
+    .map(p=>p.short+': '+data[p.qk]).join(', ');
+
+  S.saving=true;S.msg=null;render();
+  try{
+    const payload={
+      action:isTax?'addTax':'addInvoice',
+      sheetName:SHEETS[isTax?'tax':'invoices'],
+      data,
+      photoBase64: f._photoBase64 || ''  // Upload happens simultaneously with the row data
+    };
+    
+    await apiPost(payload);
+    
+    S.msg={t:'s',m:(isTax?'חשמ"ק':'חשבונית')+' נשמרה! '+(qtySummary||'ללא כמויות')};
+    S.saving=false;render();
+    setTimeout(()=>{
+      S.screen='list';S.iForm={};S.msg=null;
+      if(isTax){S.tsState='idle';S.tax=[];}else{S.isState='idle';S.invoices=[];}
+      setHeader();if(isTax)loadTax();else loadInvoices();
+    },2500);
+  }catch(e){S.msg={t:'e',m:'שגיאה: '+e.name+' — '+e.message};S.saving=false;render();}
+}
+
+function taxFormErrors(){
+  const f=S.iForm;
+  const calc=calcInv(f);
+  const total=calc.withVat;
+  const paid=parseFloat(f.AF||0);
+  const isOver=f.AE==='שיק'&&total>0&&paid>total+0.5;
+  if(!f.A?.trim())return 'ת"ז / ח"פ הוא שדה חובה';
+  if(!f.AE)return 'בחר סוג תשלום';
+  if(!f.AF?.trim())return 'הזן סכום תשלום';
+  if(f.AE==='מזומן'&&total>0&&paid>total+0.5)
+    return `מזומן לא יכול לעלות על ₪${Math.round(total).toLocaleString('he-IL')}`;
+  if(isOver&&!f._overInvNum?.trim())
+    return 'הזן מספר חשבונית עבור ההפרש';
+  if(f.AE==='שיק'){
+    if(!f.AH?.trim())return 'הזן מספר שיק';
+    if(!f.AG?.trim())return 'הזן תאריך פרעון שיק';
+    if(!f._photoTaken)return 'צלם את השיק';
+  }
+  return null;
+}
+
+function renderSaveBtn(){
+  const btn=document.querySelector('.save-btn[onclick^="saveInv"]');
+  if(!btn)return;
+  const isTax=S.screen==='new-tax';
+  const validErr=isTax?taxFormErrors():null;
+  const dis=S.saving||!!validErr;
+  btn.disabled=dis;
+  btn.style.background=dis?'#ccc':tc();
+  btn.textContent=S.saving?'⏳ שומר...':(validErr?'⛔ '+validErr:(isTax?'💾 שמור חשמ"ק':'💾 שמור חשבונית'));
+}
+
+function onPhotoChange(input){
+  if(!input.files||!input.files[0])return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const MAX=800; // Better quality, handled natively via POST
+      const ratio=Math.min(MAX/img.width,MAX/img.height,1);
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*ratio);
+      c.height=Math.round(img.height*ratio);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      const b64=c.toDataURL('image/jpeg',0.6);
+      S.iForm._photoDataUrl=b64;
+      S.iForm._photoBase64=b64;
+      S.iForm._photoTaken=true; 
+      render();
+      setTimeout(()=>{
+        const img=document.querySelector('img[src^="data:image"]');
+        if(img)img.scrollIntoView({behavior:'smooth',block:'nearest'});
+      },100);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  S.cForm=efC();S.rForm=efR();S.tab='customers';S.screen='list';
+  setHeader();
+  syncNav();
+  requestAnimationFrame(syncNav);
+
+  window.addEventListener('beforeunload',e=>{
+    e.preventDefault();
+    return e.returnValue='האם אתה בטוח שברצונך לצאת מהאפליקציה?';
+  });
+
+  history.pushState(null,'',location.href);
+  window.addEventListener('popstate',()=>{
+    if(S.screen!=='list'){
+      history.pushState(null,'',location.href);
+      goBack();
+    }else{
+      if(confirm('האם אתה בטוח שברצונך לצאת מהאפליקציה?')){
+        history.back();
+      }else{
+        history.pushState(null,'',location.href);
+      }
+    }
+  });
+
+  if(S.scriptUrl){render();pingSheets().then(()=>loadCustomers());}
+  else render();
+});
+</script>
+</body>
+</html>

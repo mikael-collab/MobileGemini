@@ -84,7 +84,7 @@ body{height:100%;font-family:'Heebo','Arial Hebrew',Arial,sans-serif;background:
 .prod-name{font-size:13px;font-weight:500;color:#222;}
 .prod-sub{font-size:10px;color:#aaa;}
 .prod-qty{font-size:15px;font-weight:700;}
-/* Sticky totals bar inside invoice form */
+/* Sticky totals bar */
 .sticky-totals{
   position:sticky;top:0;z-index:20;
   display:flex;justify-content:space-between;align-items:center;
@@ -456,7 +456,10 @@ function calcInv(f){
 async function apiFetch(params){
   if(!S.scriptUrl || !S.sheetId) throw new Error('NO_URL');
   params.sid = S.sheetId; // Append SID
-  const r=await fetch(S.scriptUrl+'?'+new URLSearchParams(params));
+  const r = await fetch(S.scriptUrl+'?'+new URLSearchParams(params), {
+    redirect: 'follow',
+    credentials: 'omit' // <--- BYPASSES THE MOBILE TRACKING BLOCKER!
+  });
   if(!r.ok)throw new Error('HTTP '+r.status);
   const d=await r.json();
   if(d.error)throw new Error(d.error+(d.available?' | '+d.available.join(', '):''));
@@ -470,7 +473,8 @@ function apiPost(body){
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(body),
-    mode: 'no-cors'
+    mode: 'no-cors',
+    credentials: 'omit' // <--- BYPASSES THE MOBILE TRACKING BLOCKER!
   }).then(() => { return {status: 'ok'}; })
     .catch((e) => { console.error(e); return {status: 'ok'}; });
 }
@@ -771,7 +775,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.1</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.2</div></div>`;
   return h;
 }
 
@@ -1085,7 +1089,7 @@ function renderInvForm(isTax){
 function suggestHtmlReceipt(){
   return`<div class="suggest-box" id="suggest-box">
     ${S.suggest.slice(0,6).map(c=>`<div class="sug-item" onmousedown="event.preventDefault()" onclick="pickCustomer('${esc(c.A||'')}','${esc(c.B||'')}')">
-      <div>${esc(c.A||'—')}</div>
+      <div>${esc(c.C||c.A||'—')}</div>
       <div class="sug-sub">${c.C&&c.A?esc(c.A)+' · ':''}${c.B?esc(c.B):''}</div>
     </div>`).join('')}
   </div>`;

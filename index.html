@@ -274,7 +274,6 @@ const RF=[
   {k:'J',label:'מספר קבלה',                     icon:'🔢'},
 ];
 
-// Safe Local Storage functions to prevent crashes on strict mobile browsers
 function getSavedUrl() {
   try { return localStorage.getItem(STORAGE_KEY) || ''; } catch(e) { return ''; }
 }
@@ -285,7 +284,6 @@ function clearUrlFromLocal() {
   try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
 }
 
-// ── State ──
 const S={
   tab:'customers',screen:'list',
   customers:[],csState:'idle',
@@ -303,17 +301,10 @@ const S={
   suggest:[],showSuggest:false,
 };
 
-// ── Helpers ──
 const tc=()=>TABS[S.tab].color;
 function efC(){const o={};CF.forEach(f=>o[f.k]='');return o;}
 function efR(){return{
-  A:'',   // מספר חשבונית
-  B:'',   // סוג תשלום
-  C:'',   // סכום
-  D:tod(),// תאריך
-  E:'',   // מספר שיק
-  F:'',   // צילום שיק
-  G:'',   // הערות
+  A:'',B:'',C:'',D:tod(),E:'',F:'',G:'',
   _custName:'', _custId:'', _invTotal:'', _invDate:'',
   _photoDataUrl:'', _photoBase64:'',
   _openInvs:[], _showOpenInvs:false,
@@ -331,7 +322,7 @@ function receiptFormErrors(){
   if(rf.B==='שיק'&&balance>0&&paid>balance+0.5&&!rf._overInvNum?.trim())
     return 'הזן מספר חשבונית עבור ההפרש';
   if(rf.A?.trim()){
-    const found=S.invoices.find(r=>nz(r.AF)===rf.A.trim());
+    const found=S.invoices.find(r=>nz(r.AF)===rf.A.trim() || nz(r.AK)===rf.A.trim());
     if(!found)return 'מספר חשבונית לא קיים במערכת';
   }
   if(rf.B==='שיק'){
@@ -366,7 +357,6 @@ function isoToHeb(s){
   return s;
 }
 
-// ── FIXED ESCAPE FUNCTION ──
 function esc(s) {
   if (!s) return '';
   return String(s)
@@ -417,7 +407,6 @@ async function apiFetch(params){
   return d;
 }
 
-// Massively improved API POST using pure fetch and no-cors 
 function apiPost(body){
   if(!S.scriptUrl) return Promise.resolve({status:'ok'});
   return fetch(S.scriptUrl, {
@@ -608,7 +597,6 @@ function setHeader(){
   }
 }
 
-// ── Render ──
 function render(){
   syncNav();
   const el=document.getElementById('content');
@@ -704,7 +692,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.8</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v6.9</div></div>`;
   return h;
 }
 
@@ -734,7 +722,6 @@ function resetAll(){
 }
 function refreshAll(){resetAll();S.screen='list';setHeader();pingSheets().then(()=>loadCustomers());}
 
-// ── Customer List ──
 function filteredC(){
   if(!S.search.trim())return S.customers;
   const q=S.search.toLowerCase();
@@ -815,7 +802,6 @@ function cCardBody(c,color){
   return h+`</div>`;
 }
 
-// ── New Customer Form ──
 function renderCustForm(){
   const color=tc();const isEdit=!!S.cForm._editId;
   let h=`<div class="fwrap" style="--tc:${color}">`;
@@ -847,7 +833,6 @@ function custField(f){
   </div>`;
 }
 
-// ── New Invoice / Tax Form ──
 function renderInvForm(isTax){
   const color=tc();const f=S.iForm;
   const calc=calcInv(f);
@@ -1032,7 +1017,6 @@ function renderReceiptForm(){
   const isCash=rf.B==='מזומן';
 
   let h=`<div class="fwrap" style="--tc:${color}">`;
-  if(S.msg)h+=alertHtml(S.msg);
 
   h+=`<div class="field"><label>מספר חשבונית <small>(עמודה A)</small></label>
     <input type="text" inputmode="numeric" id="r-A" class="finput num" value="${esc(rf.A)}"
@@ -1040,32 +1024,31 @@ function renderReceiptForm(){
       oninput="onReceiptInvNumInput(this.value)">
   </div>`;
 
-  const invLocked=!!rf.A.trim();
-  if(invLocked){
-    h+=`<div style="background:#f0f4ff;border-radius:8px;padding:10px 13px;margin-bottom:12px">
-      <div style="font-size:13px;font-weight:600;color:#1a73e8">${esc(rf._custName||'—')}</div>
-      ${rf._custId?`<div style="font-size:11px;color:#888;font-family:monospace;margin-top:2px">ת"ז/ח"פ: ${esc(rf._custId)}</div>`:''}
-      <div style="font-size:10px;color:#aaa;margin-top:4px">למחיקת הלקוח — מחק את מספר החשבונית</div>
-    </div>`;
-  }else{
-    h+=`<div class="field"><label>חיפוש לקוח</label>
-      <div class="field-wrap">
-        <input type="text" id="r-H" class="finput" value="${esc(rf._custName)}"
-          placeholder="הקלד שם לקוח, שם עסק או ת\"ז"
-          oninput="onCustSearch(this.value)" autocomplete="off">
-        ${S.showSuggest&&S.suggest.length?suggestHtmlReceipt():''}
-      </div>
-    </div>`;
-    if(rf._custName||rf._custId){
-      h+=`<div id="receipt-cust-block" style="background:#f0f4ff;border-radius:8px;padding:10px 13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div class="rcb-name" style="font-size:13px;font-weight:600;color:#1a73e8">${esc(rf._custName||'—')}</div>
-          ${rf._custId?`<div class="rcb-id" style="font-size:11px;color:#888;font-family:monospace">${esc(rf._custId)}</div>`:''}
+  const invLocked=!!(rf.A && rf.A.trim());
+  
+  h+=`<div id="r-cust-search-container" style="display:${invLocked?'none':'block'}">
+        <div class="field"><label>חיפוש לקוח</label>
+          <div class="field-wrap">
+            <input type="text" id="r-H" class="finput" value="${esc(rf._custName)}"
+              placeholder="הקלד שם לקוח, שם עסק או ת\"ז"
+              oninput="onCustSearch(this.value)" autocomplete="off">
+            ${S.showSuggest&&S.suggest.length?suggestHtmlReceipt():''}
+          </div>
         </div>
-        <button onmousedown="event.preventDefault()" onclick="clearReceiptCustomer()" style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer">×</button>
+        <div id="receipt-cust-unlocked" style="background:#f0f4ff;border-radius:8px;padding:10px 13px;margin-bottom:12px;display:${rf._custName||rf._custId?'flex':'none'};justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="rcb-name" style="font-size:13px;font-weight:600;color:#1a73e8">${esc(rf._custName||'—')}</div>
+            <div class="rcb-id" style="display:${rf._custId?'block':'none'};font-size:11px;color:#888;font-family:monospace">${esc(rf._custId)}</div>
+          </div>
+          <button type="button" onmousedown="event.preventDefault()" onclick="clearReceiptCustomer()" style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer;line-height:1">×</button>
+        </div>
       </div>`;
-    }
-  }
+
+  h+=`<div id="receipt-cust-locked" style="background:#f0f4ff;border-radius:8px;padding:10px 13px;margin-bottom:12px;display:${invLocked && (rf._custName||rf._custId) ?'block':'none'}">
+        <div class="rcb-name" style="font-size:13px;font-weight:600;color:#1a73e8">${esc(rf._custName||'—')}</div>
+        <div class="rcb-id" style="display:${rf._custId?'block':'none'};font-size:11px;color:#888;font-family:monospace;margin-top:2px">ת"ז/ח"פ: ${esc(rf._custId)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px">למחיקת הלקוח — מחק את מספר החשבונית</div>
+      </div>`;
 
   if(rf._openInvs&&rf._openInvs.length){
     h+=`<div class="fdivider"><hr><span>📄 חשבוניות פתוחות</span><hr></div>
@@ -1179,12 +1162,11 @@ function renderReceiptForm(){
 
   const btnDisabled=S.saving;
   const btnLabel=S.saving?'⏳ שומר...':'💾 שמור קבלה';
-  h+=`<button class="save-btn" onmousedown="captureReceiptFields()" style="background:${btnDisabled?'#ccc':color}" ${btnDisabled?'disabled':''} onclick="saveReceipt()">
+  h+=`<button type="button" class="save-btn" onmousedown="captureReceiptFields()" style="background:${btnDisabled?'#ccc':color}" ${btnDisabled?'disabled':''} onclick="saveReceipt()">
     ${btnLabel}</button></div>`;
   return h;
 }
 
-// ── Receipt List ──
 function renderRecList(){
   const {receipts:data,rsState:state}=S;const color=tc();
   if(state==='error')return errScreen(S.errors.receipts,'loadReceipts()','קבלות',color);
@@ -1235,7 +1217,6 @@ function renderRecList(){
   return h+`</div>`;
 }
 
-// ── Document List ──
 function renderDocList(data,state,isTax){
   const label=isTax?'חשבוניות/קבלות':'חשבוניות';
   const reload=isTax?'loadTax()':'loadInvoices()';
@@ -1386,7 +1367,6 @@ function statusHtml(state,reload,label){
     <button onclick="${reload}" style="background:#c62828;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">נסה שוב</button></div>`;
 }
 
-// ── Events ──
 function bindAll(){
   const si=document.getElementById('sinput');
   if(si){
@@ -1541,21 +1521,36 @@ function clearReceiptCustomer(){
   S.rForm.A='';S.rForm._invTotal='';S.rForm._invDate='';
   render();
 }
+
 let _invLookupTimer=null;
 function onReceiptInvNumInput(val){
   S.rForm.A=val;
   clearTimeout(_invLookupTimer);
-  if(val.trim().length<7){
+  
+  if(!val.trim()){
     S.rForm._custId='';S.rForm._custName='';
     S.rForm._invTotal='';S.rForm._invDate='';S.rForm._openInvs=[];
-    updateReceiptCustomerBlock();return;
+    updateReceiptCustomerBlock();
+    return;
   }
-  const delay=val.trim().length===7?0:400;
+  
+  const delay=400;
   _invLookupTimer=setTimeout(()=>{
-    const found=S.invoices.find(r=>nz(r.AF)===val.trim());
+    const found=S.invoices.find(r=>nz(r.AF)===val.trim() || nz(r.AK)===val.trim());
+    
     if(found){
       S.rForm._custId=nz(found.A)||'';
-      S.rForm._custName=nz(found.B)||'';
+      
+      // Attempt to get Business Name directly from invoice data
+      let cName=nz(found.B);
+      
+      // If invoice data didn't have business name, look it up in customers array
+      if(!cName && S.rForm._custId){
+        const cust = S.customers.find(c => c.B === S.rForm._custId);
+        if(cust) cName = cust.C || cust.A;
+      }
+      
+      S.rForm._custName=cName||'';
       S.rForm._invTotal=String(getInvBalance(val.trim()));
       S.rForm._invDate=nz(found.C)||'';
       S.rForm._openInvs=openInvsFor(S.rForm._custId);
@@ -1563,25 +1558,48 @@ function onReceiptInvNumInput(val){
       S.rForm._custId='';S.rForm._custName='';
       S.rForm._invTotal='';S.rForm._invDate='';S.rForm._openInvs=[];
     }
+    
     updateReceiptCustomerBlock();
   },delay);
 }
 
 function updateReceiptCustomerBlock(){
   const rf=S.rForm;
-  const block=document.getElementById('receipt-cust-block');
-  const totalBlock=document.getElementById('receipt-inv-total');
-  if(block){
-    if(rf._custName||rf._custId){
-      block.style.display='flex';
-      const nameEl=block.querySelector('.rcb-name');
-      const idEl=block.querySelector('.rcb-id');
-      if(nameEl)nameEl.textContent=rf._custName||'—';
-      if(idEl)idEl.textContent=rf._custId||'';
-    }else{
-      block.style.display='none';
-    }
+  const invLocked = !!(rf.A && rf.A.trim());
+  
+  const searchContainer = document.getElementById('r-cust-search-container');
+  const lockedBlock = document.getElementById('receipt-cust-locked');
+  const unlockedBlock = document.getElementById('receipt-cust-unlocked');
+  const totalBlock = document.getElementById('receipt-inv-total');
+  
+  if(searchContainer) searchContainer.style.display = invLocked ? 'none' : 'block';
+  
+  if(lockedBlock) {
+     lockedBlock.style.display = invLocked && (rf._custName || rf._custId) ? 'block' : 'none';
+     if(invLocked) {
+         const nameEl = lockedBlock.querySelector('.rcb-name');
+         const idEl = lockedBlock.querySelector('.rcb-id');
+         if(nameEl) nameEl.textContent = rf._custName || '—';
+         if(idEl) {
+             idEl.style.display = rf._custId ? 'block' : 'none';
+             idEl.textContent = 'ת"ז/ח"פ: ' + rf._custId;
+         }
+     }
   }
+  
+  if(unlockedBlock) {
+     unlockedBlock.style.display = !invLocked && (rf._custName || rf._custId) ? 'flex' : 'none';
+     if(!invLocked) {
+         const nameEl = unlockedBlock.querySelector('.rcb-name');
+         const idEl = unlockedBlock.querySelector('.rcb-id');
+         if(nameEl) nameEl.textContent = rf._custName || '—';
+         if(idEl) {
+             idEl.style.display = rf._custId ? 'block' : 'none';
+             idEl.textContent = rf._custId;
+         }
+     }
+  }
+
   if(totalBlock){
     if(rf._invTotal){
       totalBlock.style.display='flex';
@@ -1592,6 +1610,7 @@ function updateReceiptCustomerBlock(){
     }
   }
 }
+
 function pickReceiptInv(invNum,invTotal,invDate){
   S.rForm.A=invNum;
   S.rForm._invTotal=invTotal;
@@ -1700,7 +1719,8 @@ async function saveReceipt(){
   const data1={
     A:rf.A||'',B:rf.B||'',
     C:isOverpay?String(Math.round(balance*100)/100):rf.C,
-    D:rf.D||tod(),E:rf.E||'',G:g1Notes
+    D:rf.D||tod(),E:rf.E||'',G:g1Notes,
+    H:rf._custName||'', I:rf._custId||''
   };
 
   S.saving=true;S.msg=null;render();
@@ -1713,7 +1733,8 @@ async function saveReceipt(){
       const data2={
         A:inv2,B:rf.B,
         C:String(Math.round(excess*100)/100),
-        D:rf.D||tod(),E:rf.E||'',G:g2Notes
+        D:rf.D||tod(),E:rf.E||'',G:g2Notes,
+        H:rf._custName||'', I:rf._custId||''
       };
       await apiPost({action:'addReceipt', data:data2, photoBase64: rf._photoBase64 || ''});
       S.receipts.push({...data2,_id:S.receipts.length,_bg:'#ffffff'});
@@ -1815,33 +1836,6 @@ function taxFormErrors(){
   return null;
 }
 
-function onPhotoChange(input){
-  if(!input.files||!input.files[0])return;
-  const file=input.files[0];
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      const MAX=800; 
-      const ratio=Math.min(MAX/img.width,MAX/img.height,1);
-      const c=document.createElement('canvas');
-      c.width=Math.round(img.width*ratio);
-      c.height=Math.round(img.height*ratio);
-      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-      const b64=c.toDataURL('image/jpeg',0.6);
-      S.iForm._photoDataUrl=b64;
-      S.iForm._photoBase64=b64;
-      S.iForm._photoTaken=true; 
-      render();
-      setTimeout(()=>{
-        const img=document.querySelector('img[src^="data:image"]');
-        if(img)img.scrollIntoView({behavior:'smooth',block:'nearest'});
-      },100);
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
 window.addEventListener('DOMContentLoaded',()=>{
   S.cForm=efC();S.rForm=efR();S.tab='customers';S.screen='list';
   setHeader();

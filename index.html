@@ -528,9 +528,9 @@ async function loadAny(tab,stateKey,limit,req){
   render();
 }
 const loadCustomers=()=>loadAny('customers','csState',0,'B');
-const loadInvoices =()=>loadAny('invoices', 'isState',20,'A');
-const loadReceipts =()=>loadAny('receipts', 'rsState',20,'A');
-const loadTax      =()=>loadAny('tax',      'tsState',20,'A');
+const loadInvoices =()=>loadAny('invoices', 'isState',0,'A');
+const loadReceipts =()=>loadAny('receipts', 'rsState',0,'A');
+const loadTax      =()=>loadAny('tax',      'tsState',0,'A');
 // ── Nav ──
 function syncNav(){
   document.querySelectorAll('.bnav-btn').forEach(btn=>{

@@ -203,7 +203,6 @@ textarea.finput{resize:vertical;min-height:65px;font-size:14px;line-height:1.5;}
 <script>
 // ── Config ──
 const STORAGE_KEY='moov_url_v4';
-const STORAGE_KEY_SID='moov_sid_v1';
 const VAT=0.18;
 const TABS={
   customers:{label:'לקוחות',         color:'#1a73e8',bg:'#e8f0fe'},
@@ -294,21 +293,8 @@ function getSavedUrl() {
 function saveUrlToLocal(url) {
   try { localStorage.setItem(STORAGE_KEY, url); } catch(e) { console.warn('Storage blocked'); }
 }
-function getSavedSid() {
-  try { return localStorage.getItem(STORAGE_KEY_SID) || ''; } catch(e) { return ''; }
-}
-function saveSidToLocal(sid) {
-  try { localStorage.setItem(STORAGE_KEY_SID, sid); } catch(e) {}
-}
 function clearUrlFromLocal() {
-  try { 
-    localStorage.removeItem(STORAGE_KEY); 
-    localStorage.removeItem(STORAGE_KEY_SID);
-  } catch(e) {}
-}
-function extractSheetId(url) {
-  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  return match ? match[1] : url.trim();
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
 }
 
 const S={
@@ -322,7 +308,6 @@ const S={
   saving:false,msg:null,
   copied:null,copiedTimer:null,
   scriptUrl:getSavedUrl(),
-  sheetId:getSavedSid(),
   availableSheets:[],
   diagData:{},diagRunning:false,
   errors:{},
@@ -453,9 +438,11 @@ function calcInv(f){
 }
 
 // ── API ──
+// V7.4 - REMOVED SHEET ID COMPLETELY
 async function apiFetch(params){
-  if(!S.scriptUrl || !S.sheetId) throw new Error('NO_URL');
-  params.sid = S.sheetId; 
+  if(!S.scriptUrl) throw new Error('NO_URL');
+  
+  // No SID parameter! Just the query string for which sheet to load.
   const fullUrl = S.scriptUrl+'?'+new URLSearchParams(params);
   
   try {
@@ -468,7 +455,6 @@ async function apiFetch(params){
     if(d.error)throw new Error(d.error+(d.available?' | '+d.available.join(', '):''));
     return d;
   } catch(err) {
-    // V7.3 HARDCORE DEBUGGER
     const debugInfo = "URL TRIED:\n" + fullUrl + "\n\nRAW ERROR:\n" + err.name + ": " + err.message;
     alert("🚨 CONNECTION CRASHED 🚨\n\n" + debugInfo);
     throw err;
@@ -476,8 +462,8 @@ async function apiFetch(params){
 }
 
 function apiPost(body){
-  if(!S.scriptUrl || !S.sheetId) return Promise.resolve({status:'ok'});
-  body.sid = S.sheetId;
+  if(!S.scriptUrl) return Promise.resolve({status:'ok'});
+  // No SID parameter in body either!
   return fetch(S.scriptUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -682,7 +668,7 @@ function render(){
   const el=document.getElementById('content');
   const pos=el.scrollTop;
 
-  if((!S.scriptUrl || !S.sheetId) && S.screen!=='settings'){
+  if(!S.scriptUrl && S.screen!=='settings'){
     el.innerHTML=renderSetup();
     document.getElementById('bnav').style.display='none';
     el.scrollTop=pos;bindAll();return;
@@ -709,29 +695,25 @@ function renderSetup(){
     <div class="setup-body">
       <div class="setup-card">
         <h3>🔗 קישור לאפליקציה (Apps Script)</h3>
+        <p style="font-size:11px;color:#666;margin-bottom:8px">הדבק רק את הקישור שמסתיים ב- /exec</p>
         <input class="url-input" id="script-url-input" type="url" inputmode="url"
           placeholder="https://script.google.com/macros/s/.../exec" value="${esc(S.scriptUrl)}">
-        
-        <h3 style="margin-top:15px">📄 קישור לגיליון הנציג (Google Sheet)</h3>
-        <input class="url-input" id="sheet-url-input" type="url" inputmode="url"
-          placeholder="https://docs.google.com/spreadsheets/d/.../edit" value="${esc(S.sheetId)}">
           
         <div class="url-err" id="url-err"></div>
-        <button class="save-url-btn" onclick="saveConfig('script-url-input', 'sheet-url-input', 'url-err')">✅ התחבר</button>
+        <button class="save-url-btn" onclick="saveConfig('script-url-input', 'url-err')">✅ התחבר</button>
       </div>
     </div>
   </div>`;
 }
 
 function renderSettings(){
-  const connected=!!(S.scriptUrl && S.sheetId);
+  const connected=!!(S.scriptUrl);
   let h=`<div class="set-wrap">
     <div class="stitle">חיבור</div>
     <div class="scard">
       <div class="srow"><span class="slabel"><span class="dot" style="background:${connected?'#1e8e3e':'#c62828'}"></span>מצב</span>
         <span class="sval" style="color:${connected?'#1e8e3e':'#c62828'}">${connected?'מחובר ✓':'לא מחובר'}</span></div>
       ${S.scriptUrl?`<div class="srow"><span class="slabel">App URL</span><span class="sval">...${esc(S.scriptUrl.slice(-20))}</span></div>`:''}
-      ${S.sheetId?`<div class="srow"><span class="slabel">Sheet ID</span><span class="sval">...${esc(S.sheetId.slice(-15))}</span></div>`:''}
     </div>
     <div class="stitle">${connected?'עדכן הגדרות חיבור':'הגדר חיבור חדש'}</div>
     <div class="scard" style="padding:14px">
@@ -739,12 +721,8 @@ function renderSettings(){
       <label style="font-size:12px;color:#666">Apps Script URL</label>
       <input class="url-input" id="script-url-input2" type="url" inputmode="url"
         placeholder="https://script.google.com/macros/s/.../exec" value="${esc(S.scriptUrl)}">
-      
-      <label style="font-size:12px;color:#666;margin-top:5px;display:block">Google Sheet Link</label>
-      <input class="url-input" id="sheet-url-input2" type="url" inputmode="url"
-        placeholder="https://docs.google.com/spreadsheets/d/.../edit" value="${esc(S.sheetId)}">
         
-      <button class="save-url-btn" onclick="saveConfig('script-url-input2','sheet-url-input2','url-err2')">${connected?'🔄 עדכן קישורים':'✅ התחבר'}</button>
+      <button class="save-url-btn" onclick="saveConfig('script-url-input2','url-err2')">${connected?'🔄 עדכן קישורים':'✅ התחבר'}</button>
     </div>`;
 
   if(connected){
@@ -784,31 +762,22 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.3</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.4 (Anti-Tracker Bypass)</div></div>`;
   return h;
 }
 
-function saveConfig(scriptInputId, sheetInputId, errId){
+function saveConfig(scriptInputId, errId){
   const inpScript=document.getElementById(scriptInputId);
-  const inpSheet=document.getElementById(sheetInputId);
   const errEl=document.getElementById(errId);
   
   const valScript=(inpScript?.value||'').trim();
-  const valSheet=(inpSheet?.value||'').trim();
   
   if(!valScript||!valScript.startsWith('https://script.google.com')){
     if(inpScript)inpScript.classList.add('err');
     if(errEl){errEl.textContent='App URL לא תקין';errEl.style.display='block';}return;
   }
   
-  const sid = extractSheetId(valSheet);
-  if(!sid || sid.length < 20) {
-    if(inpSheet)inpSheet.classList.add('err');
-    if(errEl){errEl.textContent='Sheet URL לא תקין';errEl.style.display='block';}return;
-  }
-  
   S.scriptUrl=valScript; saveUrlToLocal(valScript);
-  S.sheetId=sid; saveSidToLocal(sid);
   
   resetAll();S.screen='list';S.tab='customers';
   document.getElementById('bnav').style.display='flex';
@@ -817,7 +786,7 @@ function saveConfig(scriptInputId, sheetInputId, errId){
 
 function clearUrl(){
   if(!confirm('למחוק את ה-URL?'))return;
-  S.scriptUrl=''; S.sheetId=''; clearUrlFromLocal();
+  S.scriptUrl=''; clearUrlFromLocal();
   resetAll();S.screen='list';document.getElementById('bnav').style.display='none';
   setHeader();render();
 }

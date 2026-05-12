@@ -455,26 +455,35 @@ function calcInv(f){
 // ── API ──
 async function apiFetch(params){
   if(!S.scriptUrl || !S.sheetId) throw new Error('NO_URL');
-  params.sid = S.sheetId; // Append SID
-  const r = await fetch(S.scriptUrl+'?'+new URLSearchParams(params), {
-    redirect: 'follow',
-    credentials: 'omit' // <--- BYPASSES THE MOBILE TRACKING BLOCKER!
-  });
-  if(!r.ok)throw new Error('HTTP '+r.status);
-  const d=await r.json();
-  if(d.error)throw new Error(d.error+(d.available?' | '+d.available.join(', '):''));
-  return d;
+  params.sid = S.sheetId; 
+  const fullUrl = S.scriptUrl+'?'+new URLSearchParams(params);
+  
+  try {
+    const r = await fetch(fullUrl, {
+      redirect: 'follow',
+      credentials: 'omit' 
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error+(d.available?' | '+d.available.join(', '):''));
+    return d;
+  } catch(err) {
+    // V7.3 HARDCORE DEBUGGER
+    const debugInfo = "URL TRIED:\n" + fullUrl + "\n\nRAW ERROR:\n" + err.name + ": " + err.message;
+    alert("🚨 CONNECTION CRASHED 🚨\n\n" + debugInfo);
+    throw err;
+  }
 }
 
 function apiPost(body){
   if(!S.scriptUrl || !S.sheetId) return Promise.resolve({status:'ok'});
-  body.sid = S.sheetId; // Append SID
+  body.sid = S.sheetId;
   return fetch(S.scriptUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(body),
     mode: 'no-cors',
-    credentials: 'omit' // <--- BYPASSES THE MOBILE TRACKING BLOCKER!
+    credentials: 'omit'
   }).then(() => { return {status: 'ok'}; })
     .catch((e) => { console.error(e); return {status: 'ok'}; });
 }
@@ -775,7 +784,7 @@ function renderSettings(){
       <div class="srow"><span class="slabel">נקה חיבור</span><button class="sbtn red" onclick="clearUrl()">🗑 נקה</button></div>
     </div>`;
   }
-  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.2</div></div>`;
+  h+=`<div style="text-align:center;margin-top:14px;font-size:11px;color:#ccc">MOOV Sales App v7.3</div></div>`;
   return h;
 }
 
